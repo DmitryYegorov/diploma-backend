@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { user } from "@prisma/client";
+import { User } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { JwtService } from "@nestjs/jwt";
 import { LoginUserDto } from "./dto/login-user.dto";
@@ -57,7 +57,7 @@ export class AuthService {
     }
   }
 
-  public async register(req: RegisterUserDto): Promise<user> {
+  public async register(req: RegisterUserDto): Promise<User> {
     try {
       const { email, lastName, middleName, firstName, password } = req;
 
