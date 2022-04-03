@@ -5,9 +5,8 @@ import * as bcrypt from "bcrypt";
 import { JwtService } from "@nestjs/jwt";
 import { LoginUserDto } from "./dto/login-user.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
-import { UserData } from "../common/types/User";
 
-const { SECRET, REFRESH_JWT_SECRET, ACCESS_JWT_SECRET } = process.env;
+const { SECRET } = process.env;
 
 @Injectable()
 export class AuthService {
@@ -40,15 +39,14 @@ export class AuthService {
       }
 
       const refresh = this.jwtService.sign(
-        { email, password },
+        { id: user.id, email, password },
         {
-          secret: REFRESH_JWT_SECRET,
-          expiresIn: "15min",
+          expiresIn: "3000s",
         },
       );
       const access = this.jwtService.sign(
-        { email, password },
-        { secret: ACCESS_JWT_SECRET, expiresIn: "60s" },
+        { id: user.id, email, password },
+        { expiresIn: "60s" },
       );
 
       return { user, refresh, access };
