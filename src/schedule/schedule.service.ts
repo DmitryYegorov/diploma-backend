@@ -6,37 +6,22 @@ import { PrismaService } from "../prisma/prisma.service";
 export class ScheduleService {
   constructor(private prismaService: PrismaService) {}
 
-  public async createScheduleClass(
-    scheduleClass: CreateClassDto,
+  public async createScheduleClasses(
+    scheduleClasses: CreateClassDto[],
     userId: string,
   ) {
-    const {
-      teacherId,
-      scheduleTimeId,
-      weekDay,
-      week,
-      groupIds,
-      roomId,
-      semesterId,
-      type,
-      subjectId,
-      duration,
-    } = scheduleClass;
+    const createdList = [];
 
-    return this.prismaService.scheduleClasses.create({
-      data: {
-        teacherId,
-        scheduleTimeId,
-        week,
-        weekDay,
-        groupIds,
-        roomId,
-        semesterId,
-        type,
-        subjectId,
-        duration,
-        createdBy: userId,
-      },
-    });
+    for await (const scheduleClass of scheduleClasses) {
+      const created = await this.prismaService.scheduleClasses.create({
+        data: { ...scheduleClass, createdBy: userId },
+      });
+      createdList.push(created);
+    }
+
+    return {
+      list: createdList,
+      total: createdList.length,
+    };
   }
 }
