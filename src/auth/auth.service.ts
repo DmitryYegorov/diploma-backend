@@ -5,6 +5,7 @@ import * as bcrypt from "bcrypt";
 import { JwtService } from "@nestjs/jwt";
 import { LoginUserDto } from "./dto/login-user.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
+import { EmailService } from "../email/email.service";
 
 const { SECRET } = process.env;
 
@@ -13,6 +14,7 @@ export class AuthService {
   constructor(
     private prismaService: PrismaService,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
   public async login(req: LoginUserDto): Promise<any> {
@@ -79,7 +81,7 @@ export class AuthService {
         { secret: SECRET },
       );
 
-      return this.prismaService.user.create({
+      const createdUser = await this.prismaService.user.create({
         data: {
           email,
           lastName,
@@ -89,9 +91,29 @@ export class AuthService {
           activationCode,
         },
       });
+
+      await this.sendMailWithActivateLink(createdUser);
+
+      return createdUser;
     } catch (e) {
       console.log(e);
       throw e;
     }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  private async sendMailWithActivateLink(createdUser: User): Promise<void> {
+    const sendMailOptions = {
+      to: createdUser.email,
+      from: "e.department.belstu@gmail.com",
+      subject: "Добро пожаловать!",
+      template: "CreatedAccount",
+      text: "",
+      context: {
+        name: `${createdUser.firstName} ${createdUser.middleName} ${createdUser.firstName}`,
+      },
+    };
+
+    await this.emailService.sendEmail(sendMailOptions);
   }
 }
