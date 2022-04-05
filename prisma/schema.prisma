@@ -21,6 +21,11 @@ enum ClassType {
   PRACTICE_CLASS
 }
 
+enum RoomType {
+  COMPUTER
+  LECTURE
+}
+
 enum EventType {
   LECTION
   PRACTICE_CLASS
@@ -86,6 +91,9 @@ model ScheduleClasses {
   recurrenceStart DateTime
   recurrenceEnd   DateTime
   duration        Int
+  room            Room      @relation(name: "RoomOnScheduleClasses", fields: [roomId], references: [id])
+  roomId          String    @db.Uuid
+  groupIds        Json      @db.Json
   createdAt       DateTime  @default(value: now())
   updatedAt       DateTime?
   createdBy       String    @db.Uuid
@@ -95,18 +103,46 @@ model ScheduleClasses {
 }
 
 model Event {
-  id               String    @id @default(value: uuid()) @db.Uuid
-  user             User      @relation(name: "UserOnEvent", fields: [userId], references: [id])
-  userId           String    @db.Uuid
-  type             EventType
-  startTime        DateTime
-  endTime          DateTime
-  isRecurring      Boolean
-  isAllDay         Boolean
+  id                String    @id @default(value: uuid()) @db.Uuid
+  user              User      @relation(name: "UserOnEvent", fields: [userId], references: [id])
+  userId            String    @db.Uuid
+  type              EventType
+  startTime         DateTime
+  endTime           DateTime
+  isRecurring       Boolean
+  isAllDay          Boolean
   recurrencePattern String?
-  recurrenceUntil    DateTime?
-  createdAt        DateTime  @default(value: now())
-  createdBy        String    @db.Uuid
+  recurrenceUntil   DateTime?
+  createdAt         DateTime  @default(value: now())
+  createdBy         String    @db.Uuid
 
   @@map("event")
+}
+
+model Faculty {
+  id        String @id @default(value: uuid()) @db.Uuid
+  name      String @db.VarChar()
+  shortName String @db.VarChar()
+
+  @@map("faculty")
+  Group Group[] @relation("FacultyOnGroup")
+}
+
+model Group {
+  id        String  @id @default(value: uuid()) @db.Uuid
+  faculty   Faculty @relation(name: "FacultyOnGroup", fields: [facultyId], references: [id])
+  facultyId String  @db.Uuid
+  group     Int
+
+  @@map("group")
+}
+
+model Room {
+  id     String   @id @default(value: uuid()) @db.Uuid
+  campus Int
+  room   Int
+  type   RoomType
+
+  @@map("room")
+  ScheduleClasses ScheduleClasses[] @relation("RoomOnScheduleClasses")
 }
