@@ -56,4 +56,8 @@ export class EventService {
       total: events.length,
     };
   }
+
+  public async removeEvent(eventId: string) {
+    return this.prismaService.event.delete({ where: { id: eventId } });
+  }
 }

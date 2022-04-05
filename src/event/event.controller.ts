@@ -6,6 +6,8 @@ import {
   Request,
   Get,
   Query,
+  Delete,
+  Param,
 } from "@nestjs/common";
 import { EventService } from "./event.service";
 import { JwtAuthGuard } from "../auth/guards/auth.guard";
@@ -41,5 +43,13 @@ export class EventController {
       endDate,
       userId: user.id,
     });
+  }
+
+  @Delete("/:id")
+  @UseGuards(JwtAuthGuard)
+  public async deleteEventById(@Param() params) {
+    const { id } = params;
+
+    return this.eventService.removeEvent(id);
   }
 }
