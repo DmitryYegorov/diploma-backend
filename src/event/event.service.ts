@@ -3,6 +3,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { Event as EventType } from "@prisma/client";
 import { FindEventsByPeriodDto } from "./dto/find-events-by-period.dto";
+import { UpdateEventDto } from "./dto/update-event.dto";
 
 @Injectable()
 export class EventService {
@@ -59,5 +60,28 @@ export class EventService {
 
   public async removeEvent(eventId: string) {
     return this.prismaService.event.delete({ where: { id: eventId } });
+  }
+
+  public async getEventById(eventId: string) {
+    return this.prismaService.event.findUnique({ where: { id: eventId } });
+  }
+
+  public async updateEventData(eventId: string, newData: UpdateEventDto) {
+    const oldEventData = await this.prismaService.event.findUnique({
+      where: { id: eventId },
+    });
+
+    Object.keys(newData).forEach((key: string) => {
+      if (newData[key] === null) {
+        delete newData[key];
+      }
+    });
+
+    const updatedEvent = { ...oldEventData, ...newData };
+
+    return this.prismaService.event.update({
+      where: { id: eventId },
+      data: updatedEvent,
+    });
   }
 }
