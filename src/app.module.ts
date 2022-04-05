@@ -7,6 +7,7 @@ import { AuthModule } from "./auth/auth.module";
 import { ScheduleModule } from "./schedule/schedule.module";
 import { EmailModule } from "./email/email.module";
 import { SubjectModule } from "./subject/subject.module";
+import { EventModule } from './event/event.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SubjectModule } from "./subject/subject.module";
     ScheduleModule,
     EmailModule,
     SubjectModule,
+    EventModule,
   ],
   controllers: [AppController],
   providers: [AppService],

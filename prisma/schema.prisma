@@ -57,9 +57,9 @@ model User {
   invitedBy      String?   @db.Uuid
   isActive       Boolean   @default(false)
 
-  @@map("user")
   ScheduleClasses ScheduleClasses[] @relation("teaching")
   Event           Event[]           @relation("UserOnEvent")
+  @@map("user")
 }
 
 model Subject {
@@ -71,8 +71,8 @@ model Subject {
   createdBy String    @db.Uuid
   deletedBy String?   @db.Uuid
 
-  @@map("subject")
   ScheduleClasses ScheduleClasses[] @relation("SubjectOnScheduleClasses")
+  @@map("subject")
 }
 
 model ScheduleClasses {
@@ -103,8 +103,10 @@ model Event {
   endTime          DateTime
   isRecurring      Boolean
   isAllDay         Boolean
-  recurrencePatter String?
+  recurrencePattern String?
   recurenceUnti    DateTime?
   createdAt        DateTime  @default(value: now())
   createdBy        String    @db.Uuid
+
+  @@map("event")
 }
