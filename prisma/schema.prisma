@@ -81,23 +81,26 @@ model Subject {
 }
 
 model ScheduleClasses {
-  id              String    @id @default(value: uuid()) @db.Uuid
-  teacher         User      @relation(name: "teaching", fields: [teacherId], references: [id])
-  teacherId       String    @db.Uuid
-  subject         Subject   @relation(name: "SubjectOnScheduleClasses", fields: [subjectId], references: [id])
-  subjectId       String    @db.Uuid
+  id              String       @id @default(value: uuid()) @db.Uuid
+  teacher         User         @relation(name: "teaching", fields: [teacherId], references: [id])
+  teacherId       String       @db.Uuid
+  subject         Subject      @relation(name: "SubjectOnScheduleClasses", fields: [subjectId], references: [id])
+  subjectId       String       @db.Uuid
   type            ClassType
-  week            Week      @default(WEEKLY)
+  week            Week         @default(WEEKLY)
   recurrenceStart DateTime
   recurrenceEnd   DateTime
   duration        Int
-  room            Room      @relation(name: "RoomOnScheduleClasses", fields: [roomId], references: [id])
-  roomId          String    @db.Uuid
-  groupIds        Json      @db.Json
-  createdAt       DateTime  @default(value: now())
+  room            Room         @relation(name: "RoomOnScheduleClasses", fields: [roomId], references: [id])
+  roomId          String       @db.Uuid
+  weekDay         Int
+  schedulTime     ScheduleTime @relation(name: "ScheduleTimeOnScheduleClasses", fields: [scheduleTimeId], references: [id])
+  scheduleTimeId  String       @db.Uuid
+  groupIds        Json         @db.Json
+  createdAt       DateTime     @default(value: now())
   updatedAt       DateTime?
-  createdBy       String    @db.Uuid
-  updatedBy       String    @db.Uuid
+  createdBy       String       @db.Uuid
+  updatedBy       String       @db.Uuid
 
   @@map("schedule-classes")
 }
@@ -124,8 +127,8 @@ model Faculty {
   name      String @db.VarChar()
   shortName String @db.VarChar()
 
-  @@map("faculty")
   Group Group[] @relation("FacultyOnGroup")
+  @@map("faculty")
 }
 
 model Group {
@@ -143,6 +146,19 @@ model Room {
   room   Int
   type   RoomType
 
-  @@map("room")
   ScheduleClasses ScheduleClasses[] @relation("RoomOnScheduleClasses")
+  @@map("room")
+}
+
+model ScheduleTime {
+  id          String @id @default(value: uuid()) @db.Uuid
+  order       Int
+  startHours  Int
+  startMinute Int
+  endHours    Int
+  endMinute   Int
+
+
+  @@map("schedule-time")
+  ScheduleClasses ScheduleClasses[] @relation("ScheduleTimeOnScheduleClasses")
 }
