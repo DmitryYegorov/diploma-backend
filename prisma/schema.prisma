@@ -104,7 +104,7 @@ model Event {
   isRecurring      Boolean
   isAllDay         Boolean
   recurrencePattern String?
-  recurenceUnti    DateTime?
+  recurrenceUntil    DateTime?
   createdAt        DateTime  @default(value: now())
   createdBy        String    @db.Uuid
 

@@ -1,19 +1,19 @@
 import { EventType } from "../../common/enum";
-import { IsBoolean, IsNotEmpty, IsString } from "class-validator";
+import { IsBoolean, IsEnum, IsNotEmpty, IsString } from "class-validator";
 
 export class CreateEventDto {
   @IsNotEmpty()
+  @IsEnum(EventType)
   readonly type: EventType;
   @IsNotEmpty()
   readonly startTime: Date;
   readonly endTime: Date;
   @IsBoolean()
-  readonly isRecurring: boolean = false;
+  readonly isRecurring: boolean;
   @IsBoolean()
-  readonly isAllDay: boolean = false;
+  readonly isAllDay: boolean;
   @IsString()
-  readonly recurrencePatter: string;
+  readonly recurrencePattern: string;
   readonly recurrenceUntil: Date;
-  readonly createdBy: string;
   readonly userId: string;
 }
