@@ -14,5 +14,5 @@ export class CreateClassDto {
   readonly weekDay: number;
   readonly scheduleTimeId: string;
   readonly groupIds: any;
-  readonly createdBy: string;
+  readonly createdBy: string | null;
 }
