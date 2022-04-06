@@ -11,21 +11,102 @@ datasource db {
 }
 
 enum Role {
-    ADMIN
-    USER
+  ADMIN
+  USER
 }
 
-model user {
-    id String @id @default(value: uuid()) @db.Uuid
-    email String @unique @db.VarChar()
-    firstName String @db.VarChar()
-    middleName String? @db.VarChar()
-    lastName String @db.VarChar()
-    password String  @db.VarChar()
-    role Role @default(USER)
-    activationCode String? @db.VarChar()
-    activatedAt DateTime?
-    createdAt DateTime @default(now())
-    deletedAt DateTime?
-    deletedBy String? @db.Uuid
+enum ClassType {
+  LAB
+  LECTION
+  PRACTICE_CLASS
+}
+
+enum EventType {
+  LECTION
+  PRACTICE_CLASS
+  LAB
+  CONSULTATION
+  COURSE_WORK
+  EXAM
+  CREDIT
+  POSTGRADUATE
+  TESTING
+  PRACTICE
+  DIPLOMA_DESIGN
+  STATE_EXAMINATION_BOARD
+}
+
+enum Week {
+  FIRST
+  SECOND
+  WEEKLY
+}
+
+model User {
+  id             String    @id @default(value: uuid()) @db.Uuid
+  email          String    @unique @db.VarChar()
+  firstName      String    @db.VarChar()
+  middleName     String?   @db.VarChar()
+  lastName       String    @db.VarChar()
+  password       String    @db.VarChar()
+  role           Role      @default(USER)
+  activationCode String?   @db.VarChar()
+  activatedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  invitedAt      DateTime  @default(now())
+  invitedBy      String?   @db.Uuid
+  isActive       Boolean   @default(false)
+
+  ScheduleClasses ScheduleClasses[] @relation("teaching")
+  Event           Event[]           @relation("UserOnEvent")
+  @@map("user")
+}
+
+model Subject {
+  id        String    @id @default(value: uuid()) @db.Uuid
+  name      String    @db.VarChar()
+  shortName String    @db.VarChar()
+  createdAt DateTime  @default(value: now())
+  deletedAt DateTime?
+  createdBy String    @db.Uuid
+  deletedBy String?   @db.Uuid
+
+  ScheduleClasses ScheduleClasses[] @relation("SubjectOnScheduleClasses")
+  @@map("subject")
+}
+
+model ScheduleClasses {
+  id              String    @id @default(value: uuid()) @db.Uuid
+  teacher         User      @relation(name: "teaching", fields: [teacherId], references: [id])
+  teacherId       String    @db.Uuid
+  subject         Subject   @relation(name: "SubjectOnScheduleClasses", fields: [subjectId], references: [id])
+  subjectId       String    @db.Uuid
+  type            ClassType
+  week            Week      @default(WEEKLY)
+  recurrenceStart DateTime
+  recurrenceEnd   DateTime
+  duration        Int
+  createdAt       DateTime  @default(value: now())
+  updatedAt       DateTime?
+  createdBy       String    @db.Uuid
+  updatedBy       String    @db.Uuid
+
+  @@map("schedule-classes")
+}
+
+model Event {
+  id               String    @id @default(value: uuid()) @db.Uuid
+  user             User      @relation(name: "UserOnEvent", fields: [userId], references: [id])
+  userId           String    @db.Uuid
+  type             EventType
+  startTime        DateTime
+  endTime          DateTime
+  isRecurring      Boolean
+  isAllDay         Boolean
+  recurrencePattern String?
+  recurrenceUntil    DateTime?
+  createdAt        DateTime  @default(value: now())
+  createdBy        String    @db.Uuid
+
+  @@map("event")
 }
