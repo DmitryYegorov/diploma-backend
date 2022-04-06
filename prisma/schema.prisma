@@ -158,7 +158,6 @@ model ScheduleTime {
   endHours    Int
   endMinute   Int
 
-
   ScheduleClasses ScheduleClasses[] @relation("ScheduleTimeOnScheduleClasses")
   @@map("schedule-time")
 }
