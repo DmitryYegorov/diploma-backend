@@ -4,6 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ScheduleClasses } from "@prisma/client";
 import { UpdateClassDto } from "./dto/update-class.dto";
 import * as _ from "lodash";
+import moment from "moment";
 
 @Injectable()
 export class ScheduleService {
@@ -54,6 +55,28 @@ export class ScheduleService {
     };
   }
 
+  public async getScheduleClassesByTeacherForCurrentSem(teacherId: string) {
+    const currentSemester = await this.getCurrentSemester();
+    const scheduleClasses = await this.prismaService.scheduleClasses.findMany({
+      where: { teacherId, semesterId: currentSemester.id },
+      include: {
+        subject: {
+          select: {
+            name: true,
+            shortName: true,
+          },
+        },
+        teacher: {
+          select: {
+            firstName: true,
+            lastName: true,
+            middleName: true,
+          },
+        },
+      },
+    });
+  }
+
   private deleteNullFields(obj: any) {
     Object.keys(obj).forEach((key: string) => {
       if (obj[key] === null) {
@@ -62,5 +85,21 @@ export class ScheduleService {
     });
 
     return obj;
+  }
+
+  private async getCurrentSemester() {
+    const now = new Date();
+    const semester = await this.prismaService.semester.findFirst({
+      where: {
+        startDate: {
+          lte: now,
+        },
+        endDate: {
+          gte: now,
+        },
+      },
+    });
+
+    return semester;
   }
 }

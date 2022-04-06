@@ -101,6 +101,25 @@ export class AuthService {
     }
   }
 
+  public async activateAccount(id: string, code: string) {
+    try {
+      const user = await this.prismaService.user.findUnique({ where: { id } });
+      let updated = {};
+
+      if (code === user.activationCode) {
+        await this.jwtService.verify(code);
+        updated = await this.prismaService.user.update({
+          where: { id },
+          data: { activationCode: null, activatedAt: new Date() },
+        });
+      }
+
+      return !!updated;
+    } catch (e) {
+      throw e;
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   private async sendMailWithActivateLink(createdUser: User): Promise<void> {
     const sendMailOptions = {
