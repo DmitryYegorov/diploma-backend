@@ -1,5 +1,5 @@
 import { ClassType, Week, WeekDay } from "../../common/enum";
-import { Group, GroupList } from "../types";
+import { Max, Min } from "class-validator";
 
 export class CreateClassDto {
   readonly teacherId: string;
@@ -9,6 +9,8 @@ export class CreateClassDto {
   readonly semesterId: string;
   readonly duration: number;
   readonly roomId: string;
+  @Min(0)
+  @Max(6)
   readonly weekDay: number;
   readonly scheduleTimeId: string;
   readonly groupIds: any;
