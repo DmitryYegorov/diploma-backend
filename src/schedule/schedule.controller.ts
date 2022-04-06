@@ -44,4 +44,13 @@ export class ScheduleController {
 
     return this.scheduleService.updateManyScheduleClass(reqData);
   }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  public async getScheduleClassesForCurrentSemesterByTeacher(@Param() params) {
+    const { teacher } = params;
+    return this.scheduleService.getScheduleClassesByTeacherForCurrentSem(
+      teacher,
+    );
+  }
 }

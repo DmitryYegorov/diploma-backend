@@ -4,6 +4,7 @@ import { CreateEventDto } from "./dto/create-event.dto";
 import { Event as EventType } from "@prisma/client";
 import { FindEventsByPeriodDto } from "./dto/find-events-by-period.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
+import { GetEventsForDayDto } from "./dto/get-events-for-day.dto";
 
 @Injectable()
 export class EventService {
@@ -83,5 +84,31 @@ export class EventService {
       where: { id: eventId },
       data: updatedEvent,
     });
+  }
+
+  public async getEventsForDayByTeacherId(req: GetEventsForDayDto) {
+    const { teacherId, date } = req;
+
+    const [events, scheduleClasses] = await Promise.all([
+      this.prismaService.event.findMany({
+        where: {
+          endTime: {
+            gte: date,
+          },
+          startTime: {
+            lte: date,
+          },
+          userId: teacherId,
+        },
+      }),
+      this.prismaService.scheduleClasses.findMany({
+        where: {
+          weekDay: date.getDate(),
+          teacherId,
+        },
+      }),
+    ]);
+
+    return { events, scheduleClasses };
   }
 }

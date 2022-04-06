@@ -100,7 +100,7 @@ model ScheduleClasses {
   createdAt      DateTime     @default(value: now())
   updatedAt      DateTime?
   createdBy      String       @db.Uuid
-  updatedBy      String?       @db.Uuid
+  updatedBy      String?      @db.Uuid
 
   @@map("schedule-classes")
 }
@@ -115,7 +115,6 @@ model Event {
   isRecurring       Boolean
   isAllDay          Boolean
   recurrencePattern String?
-  recurrenceUntil   DateTime?
   createdAt         DateTime  @default(value: now())
   createdBy         String    @db.Uuid
 
@@ -136,6 +135,8 @@ model Group {
   faculty   Faculty @relation(name: "FacultyOnGroup", fields: [facultyId], references: [id])
   facultyId String  @db.Uuid
   group     Int
+  subGroup  Int
+  courese   Int
 
   @@map("group")
 }
@@ -168,6 +169,6 @@ model Semester {
   endDate    DateTime
   isArchived Boolean
 
-  @@map("semester")
   ScheduleClasses ScheduleClasses[] @relation("SemesterOnScheduleClasees")
+  @@map("semester")
 }

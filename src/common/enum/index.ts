@@ -31,11 +31,11 @@ export enum Week {
 }
 
 export enum WeekDay {
+  SUNDAY,
   MONDAY,
   TUESDAY,
   WEDNESDAY,
   THURSDAY,
   FRIDAY,
   SATURDAY,
-  SUNDAY,
 }

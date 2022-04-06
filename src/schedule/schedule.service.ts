@@ -5,6 +5,7 @@ import { ScheduleClasses } from "@prisma/client";
 import { UpdateClassDto } from "./dto/update-class.dto";
 import * as _ from "lodash";
 import moment from "moment";
+import { Week } from "../common/enum";
 
 @Injectable()
 export class ScheduleService {
@@ -75,6 +76,18 @@ export class ScheduleService {
         },
       },
     });
+
+    const scheduleClassesByFirstWeek = scheduleClasses.filter(
+      (item) => item.week === Week.FIRST,
+    );
+    const scheduleClassesBySecondWeek = scheduleClasses.filter(
+      (item) => item.week === Week.SECOND,
+    );
+
+    return {
+      firstWeek: _.groupBy(scheduleClassesByFirstWeek, "weekDay"),
+      secondWeek: _.groupBy(scheduleClassesBySecondWeek, "weekDay"),
+    };
   }
 
   private deleteNullFields(obj: any) {

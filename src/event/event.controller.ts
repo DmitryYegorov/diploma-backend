@@ -72,4 +72,19 @@ export class EventController {
     const { id } = params;
     return this.eventService.updateEventData(id, newData);
   }
+
+  @Get("/all/:date")
+  @UseGuards(JwtAuthGuard)
+  public async getAllEventsByDayForCurrentUser(
+    @Param() params,
+    @Request() req,
+  ) {
+    const userId = req.user.id;
+    const { date } = params;
+
+    return this.eventService.getEventsForDayByTeacherId({
+      teacherId: userId,
+      date,
+    });
+  }
 }
