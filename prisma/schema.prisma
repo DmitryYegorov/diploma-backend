@@ -65,6 +65,7 @@ model User {
   ScheduleClasses ScheduleClasses[] @relation("teaching")
   Event           Event[]           @relation("UserOnEvent")
   @@map("user")
+  Subject Subject[]
 }
 
 model Subject {
@@ -73,6 +74,7 @@ model Subject {
   shortName String    @db.VarChar()
   createdAt DateTime  @default(value: now())
   deletedAt DateTime?
+  user      User      @relation(fields: [createdBy], references: [id])
   createdBy String    @db.Uuid
   deletedBy String?   @db.Uuid
 
@@ -167,7 +169,7 @@ model Semester {
   id         String   @id @default(value: uuid()) @db.Uuid
   startDate  DateTime
   endDate    DateTime
-  isArchived Boolean
+  isArchived Boolean? @default(value: false)
 
   ScheduleClasses ScheduleClasses[] @relation("SemesterOnScheduleClasees")
   @@map("semester")

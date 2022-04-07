@@ -20,16 +20,16 @@ import { UpdateEventDto } from "./dto/update-event.dto";
 export class EventController {
   constructor(private eventService: EventService) {}
 
-  @Post()
-  @UseGuards(JwtAuthGuard)
-  public async createEvent(
-    @Request() req,
-    @Body() body: CreateEventDto,
-  ): Promise<string> {
-    const { user } = req;
-
-    return this.eventService.create(body, user.id);
-  }
+  // @Post()
+  // @UseGuards(JwtAuthGuard)
+  // public async createEvent(
+  //   @Request() req,
+  //   @Body() body: CreateEventDto,
+  // ): Promise<string> {
+  //   const { user } = req;
+  //
+  //   return this.eventService.create(body, user.id);
+  // }
 
   @Get()
   @UseGuards(JwtAuthGuard)

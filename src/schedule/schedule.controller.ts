@@ -53,4 +53,14 @@ export class ScheduleController {
       teacher,
     );
   }
+
+  @Get("/time")
+  public async getListOfTimesClasses() {
+    return this.scheduleService.getListOfTimesClasses();
+  }
+
+  @Get("/semester/current")
+  public async getCurrentSemester() {
+    return this.scheduleService.getCurrentSemester();
+  }
 }

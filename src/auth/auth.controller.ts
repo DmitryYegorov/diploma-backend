@@ -3,6 +3,7 @@ import { User } from "@prisma/client";
 import { AuthService } from "./auth.service";
 import { RegisterUserDto } from "./dto/register-user.dto";
 import { LoginUserDto } from "./dto/login-user.dto";
+import { RefreshTokenDto } from "./dto/refresh-token.dto";
 
 @Controller("auth")
 export class AuthController {
@@ -23,5 +24,10 @@ export class AuthController {
     const { id, code } = params;
 
     return this.authService.activateAccount(id, code);
+  }
+
+  @Post("/refresh")
+  public refreshToken(@Body() body: RefreshTokenDto) {
+    return this.authService.refreshToken(body.refresh);
   }
 }

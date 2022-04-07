@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { CreateClassDto } from "./dto/create-class.dto";
 import { PrismaService } from "../prisma/prisma.service";
-import { ScheduleClasses } from "@prisma/client";
+import { ScheduleClasses, ScheduleTime } from "@prisma/client";
 import { UpdateClassDto } from "./dto/update-class.dto";
 import * as _ from "lodash";
 import moment from "moment";
@@ -90,6 +90,60 @@ export class ScheduleService {
     };
   }
 
+  public async fillScheduleTimeTable() {
+    const times = [
+      {
+        order: 1,
+        startHours: 8,
+        startMinute: 0,
+        endHours: 9,
+        endMinute: 20,
+      },
+      {
+        order: 2,
+        startHours: 9,
+        startMinute: 35,
+        endHours: 10,
+        endMinute: 55,
+      },
+      {
+        order: 3,
+        startHours: 11,
+        startMinute: 25,
+        endHours: 12,
+        endMinute: 45,
+      },
+      {
+        order: 4,
+        startHours: 13,
+        startMinute: 0,
+        endHours: 14,
+        endMinute: 20,
+      },
+    ];
+
+    const results = [];
+
+    for await (const item of times) {
+      const result = await this.prismaService.scheduleTime.create({
+        data: item,
+      });
+      results.push(result);
+    }
+  }
+
+  public async getListOfTimesClasses() {
+    const list = await this.prismaService.scheduleTime.findMany();
+    return {
+      list: list.map((item) => ({
+        id: item.id,
+        startTime: new Date(0, 0, 0, item.startHours, item.startMinute),
+        endTime: new Date(0, 0, 0, item.endHours, item.endMinute),
+      })),
+      total: list.length,
+    };
+  }
+
   private deleteNullFields(obj: any) {
     Object.keys(obj).forEach((key: string) => {
       if (obj[key] === null) {
@@ -100,7 +154,7 @@ export class ScheduleService {
     return obj;
   }
 
-  private async getCurrentSemester() {
+  public async getCurrentSemester() {
     const now = new Date();
     const semester = await this.prismaService.semester.findFirst({
       where: {

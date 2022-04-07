@@ -8,6 +8,7 @@ import { ScheduleModule } from "./schedule/schedule.module";
 import { EmailModule } from "./email/email.module";
 import { SubjectModule } from "./subject/subject.module";
 import { EventModule } from './event/event.module';
+import { RoomModule } from './room/room.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { EventModule } from './event/event.module';
     EmailModule,
     SubjectModule,
     EventModule,
+    RoomModule,
   ],
   controllers: [AppController],
   providers: [AppService],

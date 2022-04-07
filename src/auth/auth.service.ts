@@ -43,12 +43,12 @@ export class AuthService {
       const refresh = this.jwtService.sign(
         { id: user.id, email, password },
         {
-          expiresIn: "3000s",
+          expiresIn: "24h",
         },
       );
       const access = this.jwtService.sign(
         { id: user.id, email, password },
-        { expiresIn: "60s" },
+        { expiresIn: "1d" },
       );
 
       return { user, refresh, access };
@@ -118,6 +118,17 @@ export class AuthService {
     } catch (e) {
       throw e;
     }
+  }
+
+  public refreshToken(refresh: string) {
+    const { id, email, password } = this.jwtService.verify(refresh);
+
+    const access = this.jwtService.sign(
+      { id, email, password },
+      { expiresIn: "900s" },
+    );
+
+    return access;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function

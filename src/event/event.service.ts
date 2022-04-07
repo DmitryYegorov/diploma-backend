@@ -10,33 +10,34 @@ import { GetEventsForDayDto } from "./dto/get-events-for-day.dto";
 export class EventService {
   constructor(private prismaService: PrismaService) {}
 
-  public async create(eventData: CreateEventDto, userId): Promise<string> {
-    const {
-      type,
-      startTime,
-      endTime,
-      recurrenceUntil,
-      recurrencePattern,
-      isRecurring,
-      isAllDay,
-    } = eventData;
-
-    const event: EventType = await this.prismaService.event.create({
-      data: {
-        type,
-        startTime: new Date(startTime),
-        endTime: new Date(endTime),
-        recurrencePattern,
-        recurrenceUntil: new Date(recurrenceUntil),
-        createdBy: userId,
-        userId: eventData.userId,
-        isRecurring,
-        isAllDay,
-      },
-    });
-
-    return event.id;
-  }
+  // public async create(eventData: CreateEventDto, userId): Promise<string> {
+  //   const {
+  //     type,
+  //     startTime,
+  //     endTime,
+  //     recurrenceUntil,
+  //     recurrencePattern,
+  //     isRecurring,
+  //     isAllDay,
+  //     isRecurrig,
+  //   } = eventData;
+  //
+  //   const event: EventType = await this.prismaService.event.create({
+  //     data: {
+  //       type,
+  //       startTime: new Date(startTime),
+  //       endTime: new Date(endTime),
+  //       recurrencePattern,
+  //       recurrenceUntil: new Date(recurrenceUntil),
+  //       createdBy: userId,
+  //       userId: eventData.userId,
+  //       isRecurring,
+  //       isAllDay,
+  //     },
+  //   });
+  //
+  //   return event.id;
+  // }
 
   public async getUserEventsByPeriod(period: FindEventsByPeriodDto) {
     const { startDate, endDate, userId } = period;
