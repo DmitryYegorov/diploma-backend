@@ -11,8 +11,9 @@ export class RoomService {
     const response = rooms.map((roomItem) => ({
       room: `${roomItem.room}-${roomItem.campus}`,
       id: roomItem.id,
+      type: roomItem.type,
     }));
 
-    return response;
+    return { list: response, total: response.length };
   }
 }

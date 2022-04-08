@@ -6,17 +6,19 @@ import { UpdateClassDto } from "./dto/update-class.dto";
 import * as _ from "lodash";
 import moment from "moment";
 import { Week } from "../common/enum";
+import { formatScheduleClassesList } from "./formatters";
 
 @Injectable()
 export class ScheduleService {
   constructor(private prismaService: PrismaService) {}
 
-  public async createScheduleClasses(scheduleClasses: CreateClassDto[]) {
+  public async createScheduleClasses(scheduleClasses) {
     const createdList = [];
+    const semester = await this.getCurrentSemester();
 
     for await (const scheduleClass of scheduleClasses) {
       const created = await this.prismaService.scheduleClasses.create({
-        data: { ...scheduleClass },
+        data: { ...scheduleClass, semesterId: semester.id },
       });
       createdList.push(created);
     }
@@ -74,6 +76,7 @@ export class ScheduleService {
             middleName: true,
           },
         },
+        scheduleTime: true,
       },
     });
 
@@ -85,8 +88,7 @@ export class ScheduleService {
     );
 
     return {
-      firstWeek: _.groupBy(scheduleClassesByFirstWeek, "weekDay"),
-      secondWeek: _.groupBy(scheduleClassesBySecondWeek, "weekDay"),
+      list: formatScheduleClassesList(scheduleClasses),
     };
   }
 

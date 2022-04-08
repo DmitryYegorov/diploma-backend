@@ -92,11 +92,10 @@ model ScheduleClasses {
   week           Week         @default(WEEKLY)
   semester       Semester     @relation(name: "SemesterOnScheduleClasees", fields: [semesterId], references: [id])
   semesterId     String       @db.Uuid
-  duration       Int
   room           Room         @relation(name: "RoomOnScheduleClasses", fields: [roomId], references: [id])
   roomId         String       @db.Uuid
   weekDay        Int
-  schedulTime    ScheduleTime @relation(name: "ScheduleTimeOnScheduleClasses", fields: [scheduleTimeId], references: [id])
+  scheduleTime    ScheduleTime @relation(name: "ScheduleTimeOnScheduleClasses", fields: [scheduleTimeId], references: [id])
   scheduleTimeId String       @db.Uuid
   groupIds       Json         @db.Json
   createdAt      DateTime     @default(value: now())

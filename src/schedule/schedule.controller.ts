@@ -25,7 +25,11 @@ export class ScheduleController {
     @Body() body: CreateClassDto[],
   ) {
     const userId = req.user.id;
-    const reqData = body.map((item) => ({ ...item, createdBy: userId }));
+    const reqData = body.map((item) => ({
+      ...item,
+      createdBy: userId,
+      teacherId: userId,
+    }));
 
     return this.scheduleService.createScheduleClasses(reqData);
   }
@@ -47,10 +51,14 @@ export class ScheduleController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  public async getScheduleClassesForCurrentSemesterByTeacher(@Param() params) {
+  public async getScheduleClassesForCurrentSemesterByTeacher(
+    @Param() params,
+    @Request() req,
+  ) {
     const { teacher } = params;
+    const userId = req.user.id;
     return this.scheduleService.getScheduleClassesByTeacherForCurrentSem(
-      teacher,
+      teacher || userId,
     );
   }
 
