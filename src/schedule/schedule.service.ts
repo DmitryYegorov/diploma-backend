@@ -17,6 +17,27 @@ export class ScheduleService {
     const semester = await this.getCurrentSemester();
 
     for await (const scheduleClass of scheduleClasses) {
+      const oldClassData = await this.prismaService.scheduleClasses.findMany({
+        where: {
+          teacherId: scheduleClass.teacherId,
+          weekDay: scheduleClass.weekDay,
+          scheduleTimeId: scheduleClass.scheduleTimeId,
+          week: {
+            in: [Week.WEEKLY, scheduleClass.week],
+          },
+        },
+      });
+
+      if (oldClassData.length > 0) {
+        await this.prismaService.scheduleClasses.deleteMany({
+          where: {
+            id: {
+              in: oldClassData.map((o) => o.id),
+            },
+          },
+        });
+      }
+
       const created = await this.prismaService.scheduleClasses.create({
         data: { ...scheduleClass, semesterId: semester.id },
       });
@@ -76,19 +97,37 @@ export class ScheduleService {
             middleName: true,
           },
         },
+        room: true,
         scheduleTime: true,
       },
     });
 
-    const scheduleClassesByFirstWeek = scheduleClasses.filter(
-      (item) => item.week === Week.FIRST,
-    );
-    const scheduleClassesBySecondWeek = scheduleClasses.filter(
-      (item) => item.week === Week.SECOND,
-    );
+    const scheduleClassesWithGroupData = [];
+
+    for await (const scheduleClass of scheduleClasses) {
+      const { groupIds } = scheduleClass;
+      const groupsData = await this.prismaService.group.findMany({
+        where: {
+          id: {
+            in: groupIds as string[],
+          },
+        },
+        include: {
+          faculty: true,
+        },
+      });
+
+      scheduleClassesWithGroupData.push({
+        ...scheduleClass,
+        groups: groupsData.map(
+          (g) =>
+            `${g.courese}к. ${g.group}-${g.subGroup}.гр. ${g.faculty.shortName}`,
+        ),
+      });
+    }
 
     return {
-      list: formatScheduleClassesList(scheduleClasses),
+      list: formatScheduleClassesList(scheduleClassesWithGroupData),
     };
   }
 

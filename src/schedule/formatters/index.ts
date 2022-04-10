@@ -39,6 +39,7 @@ export function formatScheduleClassesList(classes: Array<any>) {
       subject: item.subject,
       week: item.week,
       classType: item.type,
+      room: `${item.room.room} - ${item.room.campus}`,
     };
   });
 
