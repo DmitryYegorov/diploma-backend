@@ -20,33 +20,6 @@ import { UpdateEventDto } from "./dto/update-event.dto";
 export class EventController {
   constructor(private eventService: EventService) {}
 
-  // @Post()
-  // @UseGuards(JwtAuthGuard)
-  // public async createEvent(
-  //   @Request() req,
-  //   @Body() body: CreateEventDto,
-  // ): Promise<string> {
-  //   const { user } = req;
-  //
-  //   return this.eventService.create(body, user.id);
-  // }
-
-  @Get()
-  @UseGuards(JwtAuthGuard)
-  public async getUserEventsByPeriod(
-    @Request() req,
-    @Query() queryParams: FindEventsByPeriodDto,
-  ) {
-    const user = req.user;
-    const { startDate, endDate } = queryParams;
-
-    return this.eventService.getUserEventsByPeriod({
-      startDate,
-      endDate: endDate || new Date(),
-      userId: user.id,
-    });
-  }
-
   @Delete("/:id")
   @UseGuards(JwtAuthGuard)
   public async deleteEventById(@Param() params) {
@@ -73,18 +46,21 @@ export class EventController {
     return this.eventService.updateEventData(id, newData);
   }
 
-  @Get("/all/:date")
+  @Get()
   @UseGuards(JwtAuthGuard)
   public async getAllEventsByDayForCurrentUser(
     @Param() params,
     @Request() req,
   ) {
     const userId = req.user.id;
-    const { date } = params;
 
-    return this.eventService.getEventsForDayByTeacherId({
-      teacherId: userId,
-      date,
-    });
+    const list = await this.eventService.getEventsWithScheduleClassesForUser(
+      userId,
+    );
+
+    return {
+      list,
+      total: list.length,
+    };
   }
 }

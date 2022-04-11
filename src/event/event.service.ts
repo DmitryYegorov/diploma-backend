@@ -1,14 +1,22 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateEventDto } from "./dto/create-event.dto";
-import { Event as EventType } from "@prisma/client";
+import { Event as EventType, ScheduleClasses } from "@prisma/client";
 import { FindEventsByPeriodDto } from "./dto/find-events-by-period.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { GetEventsForDayDto } from "./dto/get-events-for-day.dto";
+import { RRule, RRuleSet, rrulestr } from "rrule";
+import { ScheduleService } from "../schedule/schedule.service";
+import { Week } from "../common/enum";
+import { WeekDayMapToRrule } from "../common/maps";
+import * as moment from "moment";
 
 @Injectable()
 export class EventService {
-  constructor(private prismaService: PrismaService) {}
+  constructor(
+    private prismaService: PrismaService,
+    private scheduleService: ScheduleService,
+  ) {}
 
   // public async create(eventData: CreateEventDto, userId): Promise<string> {
   //   const {
@@ -39,27 +47,6 @@ export class EventService {
   //   return event.id;
   // }
 
-  public async getUserEventsByPeriod(period: FindEventsByPeriodDto) {
-    const { startDate, endDate, userId } = period;
-
-    const events = await this.prismaService.event.findMany({
-      where: {
-        userId,
-        startTime: {
-          gte: new Date(startDate),
-        },
-        endTime: {
-          lte: new Date(endDate),
-        },
-      },
-    });
-
-    return {
-      list: events,
-      total: events.length,
-    };
-  }
-
   public async removeEvent(eventId: string) {
     return this.prismaService.event.delete({ where: { id: eventId } });
   }
@@ -87,29 +74,18 @@ export class EventService {
     });
   }
 
-  public async getEventsForDayByTeacherId(req: GetEventsForDayDto) {
-    const { teacherId, date } = req;
-
+  public async getEventsWithScheduleClassesForUser(teacherId: string) {
     const [events, scheduleClasses] = await Promise.all([
       this.prismaService.event.findMany({
         where: {
-          endTime: {
-            gte: date,
-          },
-          startTime: {
-            lte: date,
-          },
           userId: teacherId,
         },
       }),
-      this.prismaService.scheduleClasses.findMany({
-        where: {
-          weekDay: date.getDate(),
-          teacherId,
-        },
-      }),
+      this.scheduleService.getScheduleClassesListByTeacherIdForCurrentSemester(
+        teacherId,
+      ),
     ]);
 
-    return { events, scheduleClasses };
+    return [...scheduleClasses, ...events];
   }
 }

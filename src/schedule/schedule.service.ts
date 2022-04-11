@@ -6,7 +6,10 @@ import { UpdateClassDto } from "./dto/update-class.dto";
 import * as _ from "lodash";
 import moment from "moment";
 import { Week } from "../common/enum";
-import { formatScheduleClassesList } from "./formatters";
+import {
+  formatScheduleClassesList,
+  mapScheduleClassToEvent,
+} from "./formatters";
 
 @Injectable()
 export class ScheduleService {
@@ -131,6 +134,36 @@ export class ScheduleService {
     };
   }
 
+  public async getScheduleClassesListByTeacherIdForCurrentSemester(
+    teacherId: string,
+  ): Promise<Array<any>> {
+    const currentSemester = await this.getCurrentSemester();
+
+    const list = await this.prismaService.scheduleClasses.findMany({
+      where: { teacherId, semesterId: currentSemester.id },
+      include: {
+        subject: {
+          select: {
+            name: true,
+            shortName: true,
+          },
+        },
+        teacher: {
+          select: {
+            firstName: true,
+            lastName: true,
+            middleName: true,
+          },
+        },
+        room: true,
+        scheduleTime: true,
+        semester: true,
+      },
+    });
+
+    return list.map((sc) => mapScheduleClassToEvent(sc));
+  }
+
   public async fillScheduleTimeTable() {
     const times = [
       {
@@ -206,8 +239,22 @@ export class ScheduleService {
           gte: now,
         },
       },
+      include: {
+        academicYear: true,
+      },
     });
 
-    return semester;
+    return {
+      id: semester.id,
+      semester: {
+        startDate: semester.startDate,
+        endDate: semester.endDate,
+      },
+      academicYear: {
+        id: semester.academicYearId,
+        startDate: semester.academicYear.startDate,
+        endDate: semester.academicYear.endDate,
+      },
+    };
   }
 }

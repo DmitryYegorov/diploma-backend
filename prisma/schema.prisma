@@ -64,8 +64,8 @@ model User {
 
   ScheduleClasses ScheduleClasses[] @relation("teaching")
   Event           Event[]           @relation("UserOnEvent")
+  Subject         Subject[]
   @@map("user")
-  Subject Subject[]
 }
 
 model Subject {
@@ -95,7 +95,7 @@ model ScheduleClasses {
   room           Room         @relation(name: "RoomOnScheduleClasses", fields: [roomId], references: [id])
   roomId         String       @db.Uuid
   weekDay        Int
-  scheduleTime    ScheduleTime @relation(name: "ScheduleTimeOnScheduleClasses", fields: [scheduleTimeId], references: [id])
+  scheduleTime   ScheduleTime @relation(name: "ScheduleTimeOnScheduleClasses", fields: [scheduleTimeId], references: [id])
   scheduleTimeId String       @db.Uuid
   groupIds       Json         @db.Json
   createdAt      DateTime     @default(value: now())
@@ -111,8 +111,10 @@ model Event {
   user              User      @relation(name: "UserOnEvent", fields: [userId], references: [id])
   userId            String    @db.Uuid
   type              EventType
-  startTime         DateTime
-  endTime           DateTime
+  title             String    @db.VarChar()
+  note              String
+  startDate         DateTime
+  endDate           DateTime
   isRecurring       Boolean
   isAllDay          Boolean
   recurrencePattern String?
@@ -165,11 +167,23 @@ model ScheduleTime {
 }
 
 model Semester {
+  id             String       @id @default(value: uuid()) @db.Uuid
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  academicYearId String       @db.Uuid
+  startDate      DateTime
+  endDate        DateTime
+  isArchived     Boolean?     @default(value: false)
+
+  ScheduleClasses ScheduleClasses[] @relation("SemesterOnScheduleClasees")
+  @@map("semester")
+}
+
+model AcademicYear {
   id         String   @id @default(value: uuid()) @db.Uuid
   startDate  DateTime
   endDate    DateTime
   isArchived Boolean? @default(value: false)
 
-  ScheduleClasses ScheduleClasses[] @relation("SemesterOnScheduleClasees")
-  @@map("semester")
+  Semester Semester[]
+  @@map("academic-year")
 }
