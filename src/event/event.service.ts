@@ -71,10 +71,12 @@ export class EventService {
     });
 
     if (newData.exDate) {
+      const dates = newData.exDate.split(",");
+
       return this.prismaService.exEvent.create({
         data: {
           eventId: eventId,
-          exceptionDate: newData.exDate,
+          exceptionDate: dates[dates.length - 1],
         },
       });
     }
