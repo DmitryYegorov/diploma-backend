@@ -109,7 +109,7 @@ export function mapScheduleClassToEvent(scheduleClass) {
       shortName: scheduleClass.subject.shortName,
     },
     title: `${scheduleClass.type} ${scheduleClass.subject.name}`,
-    classType: scheduleClass.type,
+    type: scheduleClass.type,
     teacher: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName} ${scheduleClass.teacher.lastName}`,
     room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
     startDate: startTime,

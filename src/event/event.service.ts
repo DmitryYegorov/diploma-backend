@@ -7,7 +7,7 @@ import { UpdateEventDto } from "./dto/update-event.dto";
 import { GetEventsForDayDto } from "./dto/get-events-for-day.dto";
 import { RRule, RRuleSet, rrulestr } from "rrule";
 import { ScheduleService } from "../schedule/schedule.service";
-import { Week } from "../common/enum";
+import * as Enum from "../common/enum";
 import { WeekDayMapToRrule } from "../common/maps";
 import * as moment from "moment";
 
@@ -18,37 +18,41 @@ export class EventService {
     private scheduleService: ScheduleService,
   ) {}
 
-  // public async create(eventData: CreateEventDto, userId): Promise<string> {
-  //   const {
-  //     type,
-  //     startTime,
-  //     endTime,
-  //     recurrenceUntil,
-  //     recurrencePattern,
-  //     isRecurring,
-  //     isAllDay,
-  //     isRecurrig,
-  //   } = eventData;
-  //
-  //   const event: EventType = await this.prismaService.event.create({
-  //     data: {
-  //       type,
-  //       startTime: new Date(startTime),
-  //       endTime: new Date(endTime),
-  //       recurrencePattern,
-  //       recurrenceUntil: new Date(recurrenceUntil),
-  //       createdBy: userId,
-  //       userId: eventData.userId,
-  //       isRecurring,
-  //       isAllDay,
-  //     },
-  //   });
-  //
-  //   return event.id;
-  // }
+  public async create(eventData: CreateEventDto, userId): Promise<string> {
+    const {
+      type,
+      startDate,
+      endDate,
+      rRule,
+      isRecurring,
+      isAllDay,
+      title,
+      note,
+    } = eventData;
+
+    const event = await this.prismaService.event.create({
+      data: {
+        type: type as Enum.EventType,
+        startDate: startDate,
+        endDate: endDate,
+        rRule,
+        createdBy: userId,
+        userId,
+        isRecurring,
+        isAllDay,
+        title,
+        note,
+        academicYearId: "3752bab6-5a67-4bde-8753-a43cb3343bff",
+      },
+    });
+
+    return event.id;
+  }
 
   public async removeEvent(eventId: string) {
-    return this.prismaService.event.delete({ where: { id: eventId } });
+    return this.prismaService.event.delete({
+      where: { id: eventId },
+    });
   }
 
   public async getEventById(eventId: string) {
@@ -66,26 +70,65 @@ export class EventService {
       }
     });
 
+    if (newData.exDate) {
+      return this.prismaService.exEvent.create({
+        data: {
+          eventId: eventId,
+          exceptionDate: newData.exDate,
+        },
+      });
+    }
+
     const updatedEvent = { ...oldEventData, ...newData };
 
     return this.prismaService.event.update({
       where: { id: eventId },
-      data: updatedEvent,
+      data: { ...updatedEvent },
     });
   }
 
   public async getEventsWithScheduleClassesForUser(teacherId: string) {
     const [events, scheduleClasses] = await Promise.all([
-      this.prismaService.event.findMany({
-        where: {
-          userId: teacherId,
-        },
-      }),
+      this.getEventsByUserIdForCurrentAcademicYear(teacherId),
       this.scheduleService.getScheduleClassesListByTeacherIdForCurrentSemester(
         teacherId,
       ),
     ]);
 
     return [...scheduleClasses, ...events];
+  }
+
+  public async getEventsByUserIdForCurrentAcademicYear(userId: string) {
+    const events = await this.prismaService.event.findMany({
+      where: {
+        userId,
+      },
+      include: {
+        ExEvent: {
+          select: {
+            exceptionDate: true,
+          },
+        },
+      },
+    });
+
+    const eventsWithExceptions = events.map((event) => {
+      const exDate = event.ExEvent.map((ex) => ex.exceptionDate).join(",");
+
+      return { ...event, exDate };
+    });
+
+    return eventsWithExceptions.map((event) => ({
+      id: event.id,
+      userId: event.userId,
+      type: event.type,
+      allDay: event.isAllDay,
+      title: event.title,
+      note: event.note,
+      rRule: event.rRule,
+      exDate: event?.exDate || "",
+      startDate: event.startDate,
+      endDate: event.endDate,
+    }));
   }
 }

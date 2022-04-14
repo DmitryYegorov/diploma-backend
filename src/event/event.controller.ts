@@ -46,6 +46,14 @@ export class EventController {
     return this.eventService.updateEventData(id, newData);
   }
 
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  public async createEvent(@Body() body: CreateEventDto, @Request() req) {
+    const userId = req.user.id;
+
+    return this.eventService.create(body, userId);
+  }
+
   @Get()
   @UseGuards(JwtAuthGuard)
   public async getAllEventsByDayForCurrentUser(
