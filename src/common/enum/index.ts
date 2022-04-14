@@ -29,3 +29,13 @@ export enum Week {
   SECOND = "SECOND",
   WEEKLY = "WEEKLY",
 }
+
+export enum WeekDay {
+  SUNDAY,
+  MONDAY,
+  TUESDAY,
+  WEDNESDAY,
+  THURSDAY,
+  FRIDAY,
+  SATURDAY,
+}

@@ -21,6 +21,11 @@ enum ClassType {
   PRACTICE_CLASS
 }
 
+enum RoomType {
+  COMPUTER
+  LECTURE
+}
+
 enum EventType {
   LECTION
   PRACTICE_CLASS
@@ -59,6 +64,7 @@ model User {
 
   ScheduleClasses ScheduleClasses[] @relation("teaching")
   Event           Event[]           @relation("UserOnEvent")
+  Subject         Subject[]
   @@map("user")
 }
 
@@ -68,6 +74,7 @@ model Subject {
   shortName String    @db.VarChar()
   createdAt DateTime  @default(value: now())
   deletedAt DateTime?
+  user      User      @relation(fields: [createdBy], references: [id])
   createdBy String    @db.Uuid
   deletedBy String?   @db.Uuid
 
@@ -76,37 +83,120 @@ model Subject {
 }
 
 model ScheduleClasses {
-  id              String    @id @default(value: uuid()) @db.Uuid
-  teacher         User      @relation(name: "teaching", fields: [teacherId], references: [id])
-  teacherId       String    @db.Uuid
-  subject         Subject   @relation(name: "SubjectOnScheduleClasses", fields: [subjectId], references: [id])
-  subjectId       String    @db.Uuid
-  type            ClassType
-  week            Week      @default(WEEKLY)
-  recurrenceStart DateTime
-  recurrenceEnd   DateTime
-  duration        Int
-  createdAt       DateTime  @default(value: now())
-  updatedAt       DateTime?
-  createdBy       String    @db.Uuid
-  updatedBy       String    @db.Uuid
+  id             String       @id @default(value: uuid()) @db.Uuid
+  teacher        User         @relation(name: "teaching", fields: [teacherId], references: [id])
+  teacherId      String       @db.Uuid
+  subject        Subject      @relation(name: "SubjectOnScheduleClasses", fields: [subjectId], references: [id])
+  subjectId      String       @db.Uuid
+  type           ClassType
+  week           Week         @default(WEEKLY)
+  semester       Semester     @relation(name: "SemesterOnScheduleClasees", fields: [semesterId], references: [id])
+  semesterId     String       @db.Uuid
+  room           Room         @relation(name: "RoomOnScheduleClasses", fields: [roomId], references: [id])
+  roomId         String       @db.Uuid
+  weekDay        Int
+  scheduleTime   ScheduleTime @relation(name: "ScheduleTimeOnScheduleClasses", fields: [scheduleTimeId], references: [id])
+  scheduleTimeId String       @db.Uuid
+  groupIds       Json         @db.Json
+  createdAt      DateTime     @default(value: now())
+  updatedAt      DateTime?
+  createdBy      String       @db.Uuid
+  updatedBy      String?      @db.Uuid
 
   @@map("schedule-classes")
 }
 
 model Event {
-  id               String    @id @default(value: uuid()) @db.Uuid
-  user             User      @relation(name: "UserOnEvent", fields: [userId], references: [id])
-  userId           String    @db.Uuid
-  type             EventType
-  startTime        DateTime
-  endTime          DateTime
-  isRecurring      Boolean
-  isAllDay         Boolean
-  recurrencePattern String?
-  recurrenceUntil    DateTime?
-  createdAt        DateTime  @default(value: now())
-  createdBy        String    @db.Uuid
+  id             String       @id @default(value: uuid()) @db.Uuid
+  user           User         @relation(name: "UserOnEvent", fields: [userId], references: [id])
+  userId         String       @db.Uuid
+  type           EventType
+  title          String       @db.VarChar()
+  note           String
+  startDate      DateTime
+  endDate        DateTime
+  isRecurring    Boolean
+  isAllDay       Boolean
+  rRule          String?
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  academicYearId String       @db.Uuid
+  createdAt      DateTime     @default(value: now())
+  createdBy      String       @db.Uuid
 
+  ExEvent ExEvent[]
   @@map("event")
+}
+
+model ExEvent {
+  id            String @id @default(value: uuid()) @db.Uuid
+  event         Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId       String @db.Uuid
+  exceptionDate String
+
+  @@map("event-exception")
+}
+
+model Faculty {
+  id        String @id @default(value: uuid()) @db.Uuid
+  name      String @db.VarChar()
+  shortName String @db.VarChar()
+
+  Group Group[] @relation("FacultyOnGroup")
+  @@map("faculty")
+}
+
+model Group {
+  id        String  @id @default(value: uuid()) @db.Uuid
+  faculty   Faculty @relation(name: "FacultyOnGroup", fields: [facultyId], references: [id])
+  facultyId String  @db.Uuid
+  group     Int
+  subGroup  Int
+  courese   Int
+
+  @@map("group")
+}
+
+model Room {
+  id     String   @id @default(value: uuid()) @db.Uuid
+  campus Int
+  room   Int
+  type   RoomType
+
+  ScheduleClasses ScheduleClasses[] @relation("RoomOnScheduleClasses")
+  @@map("room")
+}
+
+model ScheduleTime {
+  id          String @id @default(value: uuid()) @db.Uuid
+  order       Int
+  startHours  Int
+  startMinute Int
+  endHours    Int
+  endMinute   Int
+
+  ScheduleClasses ScheduleClasses[] @relation("ScheduleTimeOnScheduleClasses")
+  @@map("schedule-time")
+}
+
+model Semester {
+  id             String       @id @default(value: uuid()) @db.Uuid
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  academicYearId String       @db.Uuid
+  startDate      DateTime
+  endDate        DateTime
+  isArchived     Boolean?     @default(value: false)
+
+  ScheduleClasses ScheduleClasses[] @relation("SemesterOnScheduleClasees")
+  @@map("semester")
+}
+
+model AcademicYear {
+  id         String   @id @default(value: uuid()) @db.Uuid
+  startDate  DateTime
+  endDate    DateTime
+  isArchived Boolean? @default(value: false)
+
+  Semester Semester[]
+  Event    Event[]
+  @@map("academic-year")
 }

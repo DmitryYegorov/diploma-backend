@@ -19,4 +19,11 @@ export class UsersService {
       total: list.length,
     };
   }
+
+  public async activateUser(id: string, isActive: boolean) {
+    return this.prismaService.user.update({
+      where: { id },
+      data: { isActive },
+    });
+  }
 }

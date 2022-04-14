@@ -8,4 +8,5 @@ export class UpdateEventDto {
   readonly isAllDay: boolean | null;
   readonly recurrencePattern: string | null;
   readonly recurrenceUntil: Date | null;
+  readonly exDate: string | null;
 }
