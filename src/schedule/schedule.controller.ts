@@ -25,28 +25,13 @@ export class ScheduleController {
     @Body() body: CreateClassDto[],
   ) {
     const userId = req.user.id;
-    const reqData = body.map((item) => ({
-      ...item,
+    const reqData = {
+      ...body,
       createdBy: userId,
       teacherId: userId,
-    }));
+    };
 
     return this.scheduleService.createScheduleClasses(reqData);
-  }
-
-  @Put()
-  @UseGuards(JwtAuthGuard)
-  public async updateManyScheduleClasses(
-    @Request() req,
-    @Body() body: UpdateClassDto[],
-  ) {
-    const userId = req.user.id;
-    const reqData: UpdateClassDto[] = body.map((item) => ({
-      ...item,
-      updatedBy: userId,
-    }));
-
-    return this.scheduleService.updateManyScheduleClass(reqData);
   }
 
   @Get()
@@ -60,6 +45,12 @@ export class ScheduleController {
     return this.scheduleService.getScheduleClassesByTeacherForCurrentSem(
       teacher || userId,
     );
+  }
+
+  @Get("/department")
+  //@UseGuards(JwtAuthGuard)
+  public async getScheduleClassOfDepartmentForCurrentSemester() {
+    return this.scheduleService.getScheduleClassOfDepartmentForCurrentSemester();
   }
 
   @Get("/time")

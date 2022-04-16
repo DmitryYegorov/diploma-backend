@@ -1,5 +1,5 @@
 import * as _ from "lodash";
-import { Week } from "../../common/enum";
+import { ClassType, Week } from "../../common/enum";
 import * as moment from "moment";
 import { RRule } from "rrule";
 import { WeekDayMapToRrule } from "../../common/maps";
@@ -65,6 +65,12 @@ export function formatScheduleClassesList(classes: Array<any>) {
   return groupedByWeekDay;
 }
 
+const mapClassType = {
+  [ClassType.PRACTICE_CLASS]: "ПЗ",
+  [ClassType.LAB]: "ЛР",
+  [ClassType.LECTION]: "ЛК",
+};
+
 export function mapScheduleClassToEvent(scheduleClass) {
   const { weekDay, week, semester, scheduleTime } = scheduleClass;
   let startDate;
@@ -72,23 +78,29 @@ export function mapScheduleClassToEvent(scheduleClass) {
   if (week === Week.WEEKLY || week === Week.FIRST) {
     startDate = semester.startDate;
   } else if (week === Week.SECOND) {
-    startDate = new Date(
-      moment(semester.startDate).add(1, "w").startOf("isoWeek").toDate(),
-    );
+    startDate = moment(semester.startDate)
+      .add(1, "week")
+      .startOf("isoWeek")
+      .add(1, "d")
+      .toDate();
   }
+
+  console.log({ week, startDate });
 
   const startTime = new Date(
     startDate.getFullYear(),
     startDate.getMonth(),
-    startDate.getDay(),
+    startDate.getDate(),
     scheduleTime.startHours,
     scheduleTime.startMinute,
     0,
   );
+
+  console.log({ week, startTime });
   const endTime = new Date(
     startDate.getFullYear(),
     startDate.getMonth(),
-    startDate.getDay(),
+    startDate.getDate(),
     scheduleTime.endHours,
     scheduleTime.endMinute,
     0,
@@ -98,7 +110,7 @@ export function mapScheduleClassToEvent(scheduleClass) {
     freq: RRule.WEEKLY,
     interval: week !== Week.WEEKLY ? 2 : 1,
     byweekday: WeekDayMapToRrule[weekDay],
-    dtstart: startTime,
+    dtstart: startDate,
     until: semester.endDate,
   }).toString();
 
@@ -108,7 +120,7 @@ export function mapScheduleClassToEvent(scheduleClass) {
       name: scheduleClass.subject.name,
       shortName: scheduleClass.subject.shortName,
     },
-    title: `${scheduleClass.type} ${scheduleClass.subject.name}`,
+    title: `${mapClassType[scheduleClass.type]} ${scheduleClass.subject.name}`,
     type: scheduleClass.type,
     teacher: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName} ${scheduleClass.teacher.lastName}`,
     room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,

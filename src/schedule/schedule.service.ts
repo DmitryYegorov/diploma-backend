@@ -5,81 +5,93 @@ import { ScheduleClasses, ScheduleTime } from "@prisma/client";
 import { UpdateClassDto } from "./dto/update-class.dto";
 import * as _ from "lodash";
 import moment from "moment";
-import { Week } from "../common/enum";
+import { ClassType, Week } from "../common/enum";
 import {
   formatScheduleClassesList,
   mapScheduleClassToEvent,
 } from "./formatters";
+import { share } from "rxjs";
 
 @Injectable()
 export class ScheduleService {
   constructor(private prismaService: PrismaService) {}
 
-  public async createScheduleClasses(scheduleClasses) {
-    const createdList = [];
+  public async createScheduleClasses(scheduleClass) {
     const semester = await this.getCurrentSemester();
 
-    for await (const scheduleClass of scheduleClasses) {
-      const oldClassData = await this.prismaService.scheduleClasses.findMany({
-        where: {
-          teacherId: scheduleClass.teacherId,
-          weekDay: scheduleClass.weekDay,
-          scheduleTimeId: scheduleClass.scheduleTimeId,
-          week: {
-            in: [Week.WEEKLY, scheduleClass.week],
-          },
-        },
-      });
-
-      if (oldClassData.length > 0) {
-        await this.prismaService.scheduleClasses.deleteMany({
-          where: {
-            id: {
-              in: oldClassData.map((o) => o.id),
-            },
-          },
-        });
-      }
-
-      const created = await this.prismaService.scheduleClasses.create({
-        data: { ...scheduleClass, semesterId: semester.id },
-      });
-      createdList.push(created);
-    }
-
-    return {
-      list: createdList,
-      total: createdList.length,
-    };
-  }
-
-  public async updateManyScheduleClass(list: UpdateClassDto[]) {
-    const ids: string[] = list.map((item) => item.id);
-
-    const listOfOldData = await this.prismaService.scheduleClasses.findMany({
+    const oldClassData = await this.prismaService.scheduleClasses.findMany({
       where: {
-        id: {
-          in: ids,
+        teacherId: scheduleClass.teacherId,
+        weekDay: scheduleClass.weekDay,
+        scheduleTimeId: scheduleClass.scheduleTimeId,
+        week: {
+          in: [Week.WEEKLY, scheduleClass.week as Week],
         },
       },
     });
 
-    const groupedById = _.groupBy(listOfOldData, "id");
-    const updatedDataList = [];
-
-    for await (const id of ids) {
-      const newData = this.deleteNullFields(groupedById[id][0]);
-      const updatedItem = await this.prismaService.scheduleClasses.update({
-        where: { id },
-        data: { ...newData, updatedAt: new Date() },
+    if (oldClassData.length > 0) {
+      await this.prismaService.scheduleClasses.deleteMany({
+        where: {
+          id: {
+            in: oldClassData.map((o) => o.id),
+          },
+        },
       });
-      updatedDataList.push(updatedItem);
     }
 
-    return {
-      list: updatedDataList,
-      total: updatedDataList.length,
-    };
+    const created = await this.prismaService.scheduleClasses.create({
+      data: {
+        teacherId: scheduleClass.teacherId,
+        roomId: scheduleClass.roomId,
+        semesterId: semester.id,
+        type: scheduleClass.type,
+        subjectId: scheduleClass.subjectId,
+        weekDay: scheduleClass.weekDay,
+        scheduleTimeId: scheduleClass.scheduleTimeId,
+        week: scheduleClass.week,
+        createdBy: scheduleClass.createdBy,
+        createdAt: new Date(),
+      },
+    });
+    for await (const groupId of scheduleClass.groupIds) {
+      await this.prismaService.groupScheduleClass.create({
+        data: {
+          groupId,
+          scheduleClassId: created.id,
+        },
+      });
+    }
+
+    return created;
+  }
+
+  public async getScheduleClassOfDepartmentForCurrentSemester() {
+    const teachers = await this.prismaService.user.findMany({
+      select: {
+        id: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+      },
+      where: {
+        isActive: true,
+      },
+    });
+
+    const entries = [];
+
+    for await (const teacher of teachers) {
+      const scheduleClasses =
+        await this.getScheduleClassesByTeacherForCurrentSem(teacher.id);
+
+      entries.push({
+        teacher: `${teacher.firstName} ${teacher.middleName[0]}. ${teacher.lastName[0]}.`,
+        scheduleClasses: scheduleClasses.list,
+      });
+    }
+
+    return entries;
   }
 
   public async getScheduleClassesByTeacherForCurrentSem(teacherId: string) {
@@ -105,29 +117,42 @@ export class ScheduleService {
       },
     });
 
-    const scheduleClassesWithGroupData = [];
-
-    for await (const scheduleClass of scheduleClasses) {
-      const { groupIds } = scheduleClass;
-      const groupsData = await this.prismaService.group.findMany({
-        where: {
-          id: {
-            in: groupIds as string[],
+    const groupsData = await this.prismaService.groupScheduleClass.findMany({
+      select: {
+        scheduleClassId: true,
+        group: {
+          include: {
+            faculty: true,
           },
         },
-        include: {
-          faculty: true,
+      },
+      where: {
+        scheduleClassId: {
+          in: scheduleClasses.map((s) => s.id),
         },
-      });
+      },
+    });
 
-      scheduleClassesWithGroupData.push({
-        ...scheduleClass,
-        groups: groupsData.map(
-          (g) =>
-            `${g.courese}к. ${g.group}-${g.subGroup}.гр. ${g.faculty.shortName}`,
-        ),
-      });
-    }
+    const groupedScheduleClassesById = _.groupBy(scheduleClasses, "id");
+    const groupedGroupsListByScheduleClassId = _.groupBy(
+      groupsData,
+      "scheduleClassId",
+    );
+
+    const scheduleClassesWithGroupData = Object.keys(
+      groupedScheduleClassesById,
+    ).map((scheduleClassId: string) => ({
+      ...groupedScheduleClassesById[scheduleClassId][0],
+      groups: groupedGroupsListByScheduleClassId[scheduleClassId].map(
+        (g) =>
+          `${g.group.courese} ${g.group.faculty.shortName} ${g.group.group} ${
+            groupedScheduleClassesById[scheduleClassId][0].type ===
+            ClassType.LAB
+              ? `/${g.group.subGroup}`
+              : ""
+          }`,
+      ),
+    }));
 
     return {
       list: formatScheduleClassesList(scheduleClassesWithGroupData),

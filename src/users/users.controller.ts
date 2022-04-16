@@ -1,8 +1,10 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
   Patch,
+  Put,
   Query,
   UseGuards,
 } from "@nestjs/common";
@@ -28,11 +30,12 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
-  @Patch()
+  @Put("/activate/:userId")
   @Role([UserRole.ADMIN])
   @UseGuards(RolesGuard)
-  public async activateUser(@Query() queryParams: ActivateUserDto) {
-    const { userId, isActive } = queryParams;
+  public async activateUser(@Body() body: ActivateUserDto, @Param() param) {
+    const { isActive } = body;
+    const { userId } = param;
 
     return this.usersService.activateUser(userId, isActive);
   }

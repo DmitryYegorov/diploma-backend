@@ -12,6 +12,7 @@ datasource db {
 
 enum Role {
   ADMIN
+  MANAGER
   USER
 }
 
@@ -97,13 +98,24 @@ model ScheduleClasses {
   weekDay        Int
   scheduleTime   ScheduleTime @relation(name: "ScheduleTimeOnScheduleClasses", fields: [scheduleTimeId], references: [id])
   scheduleTimeId String       @db.Uuid
-  groupIds       Json         @db.Json
   createdAt      DateTime     @default(value: now())
   updatedAt      DateTime?
   createdBy      String       @db.Uuid
   updatedBy      String?      @db.Uuid
 
+  GroupScheduleClass GroupScheduleClass[]
   @@map("schedule-classes")
+}
+
+model GroupScheduleClass {
+  id              String          @id @default(value: uuid()) @db.Uuid
+  scheduleClass   ScheduleClasses @relation(fields: [scheduleClassId], references: [id], onDelete: Cascade)
+  group           Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  scheduleClassId String          @db.Uuid
+  groupId         String          @db.Uuid
+
+
+  @@map("group_schedule-classes")
 }
 
 model Event {
@@ -146,13 +158,16 @@ model Faculty {
 }
 
 model Group {
-  id        String  @id @default(value: uuid()) @db.Uuid
-  faculty   Faculty @relation(name: "FacultyOnGroup", fields: [facultyId], references: [id])
-  facultyId String  @db.Uuid
-  group     Int
-  subGroup  Int
-  courese   Int
+  id         String   @id @default(value: uuid()) @db.Uuid
+  faculty    Faculty  @relation(name: "FacultyOnGroup", fields: [facultyId], references: [id])
+  facultyId  String   @db.Uuid
+  group      Int
+  subGroup   Int
+  courese    Int
+  semester   Semester @relation(fields: [semesterId], references: [id])
+  semesterId String   @db.Uuid
 
+  GroupScheduleClass GroupScheduleClass[]
   @@map("group")
 }
 
@@ -188,6 +203,7 @@ model Semester {
 
   ScheduleClasses ScheduleClasses[] @relation("SemesterOnScheduleClasees")
   @@map("semester")
+  Group Group[]
 }
 
 model AcademicYear {
