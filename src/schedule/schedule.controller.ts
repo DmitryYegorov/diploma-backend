@@ -47,10 +47,10 @@ export class ScheduleController {
     );
   }
 
-  @Get("/department")
+  @Get("/department/:semesterId")
   //@UseGuards(JwtAuthGuard)
-  public async getScheduleClassOfDepartmentForCurrentSemester() {
-    return this.scheduleService.getScheduleClassOfDepartmentForCurrentSemester();
+  public async getScheduleClassOfDepartmentForCurrentSemester(@Param() param) {
+    return this.scheduleService.getScheduleClassOfDepartment(param.semesterId);
   }
 
   @Get("/time")

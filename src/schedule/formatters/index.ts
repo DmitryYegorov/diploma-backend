@@ -2,17 +2,83 @@ import * as _ from "lodash";
 import { ClassType, Week } from "../../common/enum";
 import * as moment from "moment";
 import { RRule } from "rrule";
-import { WeekDayMapToRrule } from "../../common/maps";
+import { WeekDayMapToRrule, WeekDaysMapToString } from "../../common/maps";
 
-export function formatScheduleClassesList(classes: Array<any>) {
-  const mappedList = classes.map((item) => {
+// export function formatScheduleClassesList(classes: Array<any>) {
+//   const mappedList = classes.map((item) => {
+//     const startClassDate = moment(
+//       new Date(
+//         0,
+//         0,
+//         0,
+//         item.scheduleTime.startHours,
+//         item.scheduleTime.startMinute,
+//         0,
+//       ),
+//     ).format("HH:mm");
+//     const endClassDate = moment(
+//       new Date(
+//         0,
+//         0,
+//         0,
+//         item.scheduleTime.endHours,
+//         item.scheduleTime.endMinute,
+//         0,
+//       ),
+//     ).format("HH:mm");
+//
+//     return {
+//       id: item.id,
+//       teacherId: item.teacherId,
+//       teacherName: `${item.teacher.firstName} ${item.teacher.middleName} ${item.teacher.lastName}`,
+//       time: {
+//         id: item.scheduleTime.id,
+//         value: `${startClassDate} - ${endClassDate}`,
+//         order: item.scheduleTime.order,
+//       },
+//       weekDay: item.weekDay,
+//       groups: item.groups,
+//       subject: item.subject,
+//       week: item.week,
+//       classType: item.type,
+//       room: `${item.room.room} - ${item.room.campus}`,
+//     };
+//   });
+//
+//   const groupedByWeekDay = _.groupBy(mappedList, "weekDay");
+//
+//   for (const day of Object.keys(groupedByWeekDay)) {
+//     const sortedByClassesOrder = groupedByWeekDay[day].sort(
+//       (a, b) => a.time.order - b.time.order,
+//     );
+//
+//     groupedByWeekDay[day] = _.groupBy(sortedByClassesOrder, "time.id");
+//
+//     for (const classOrder of Object.keys(groupedByWeekDay[day])) {
+//       groupedByWeekDay[day][classOrder] = _.groupBy(
+//         groupedByWeekDay[day][classOrder],
+//         "week",
+//       );
+//     }
+//   }
+//
+//   return groupedByWeekDay;
+// }
+
+const mapClassType = {
+  [ClassType.PRACTICE_CLASS]: "ПЗ",
+  [ClassType.LAB]: "ЛР",
+  [ClassType.LECTION]: "ЛК",
+};
+export function formatScheduleClassesList(scheduleClasses) {
+  const formatted = scheduleClasses.map((scheduleClass) => {
     const startClassDate = moment(
       new Date(
         0,
         0,
         0,
-        item.scheduleTime.startHours,
-        item.scheduleTime.startMinute,
+        scheduleClass.scheduleTime.startHours,
+        scheduleClass.scheduleTime.startMinute,
         0,
       ),
     ).format("HH:mm");
@@ -21,55 +87,52 @@ export function formatScheduleClassesList(classes: Array<any>) {
         0,
         0,
         0,
-        item.scheduleTime.endHours,
-        item.scheduleTime.endMinute,
+        scheduleClass.scheduleTime.endHours,
+        scheduleClass.scheduleTime.endMinute,
         0,
       ),
     ).format("HH:mm");
 
     return {
-      id: item.id,
-      teacherId: item.teacherId,
-      teacherName: `${item.teacher.firstName} ${item.teacher.middleName} ${item.teacher.lastName}`,
-      time: {
-        id: item.scheduleTime.id,
-        value: `${startClassDate} - ${endClassDate}`,
-        order: item.scheduleTime.order,
+      weekDay: scheduleClass.weekDay,
+      week: scheduleClass.week,
+      order: scheduleClass.scheduleTime.order,
+      data: {
+        room: `${scheduleClass.room.room}-${scheduleClass.room.campus}`,
+        title: `${mapClassType[scheduleClass.type]} ${
+          scheduleClass.subject.shortName
+        }`,
+        time: `${startClassDate} - ${endClassDate}`,
+        group: `${scheduleClass.GroupScheduleClass[0].group.courese} ${scheduleClass.GroupScheduleClass[0].group.faculty.shortName} ${scheduleClass.GroupScheduleClass[0].group.group}`,
       },
-      weekDay: item.weekDay,
-      groups: item.groups,
-      subject: item.subject,
-      week: item.week,
-      classType: item.type,
-      room: `${item.room.room} - ${item.room.campus}`,
     };
   });
 
-  const groupedByWeekDay = _.groupBy(mappedList, "weekDay");
+  const groupedByWeek = _.groupBy(formatted, "week");
 
-  for (const day of Object.keys(groupedByWeekDay)) {
-    const sortedByClassesOrder = groupedByWeekDay[day].sort(
-      (a, b) => a.time.order - b.time.order,
-    );
+  const scheduleClassesFirstWeek = [
+    groupedByWeek[Week.FIRST],
+    groupedByWeek[Week.WEEKLY],
+  ].flat();
+  const scheduleClassesSecondWeek = [
+    groupedByWeek[Week.SECOND],
+    groupedByWeek[Week.WEEKLY],
+  ].flat();
 
-    groupedByWeekDay[day] = _.groupBy(sortedByClassesOrder, "time.id");
+  const res = {
+    scheduleClassesFirstWeek: _.groupBy(scheduleClassesFirstWeek, "weekDay"),
+    scheduleClassesSecondWeek: _.groupBy(scheduleClassesSecondWeek, "weekDay"),
+  };
 
-    for (const classOrder of Object.keys(groupedByWeekDay[day])) {
-      groupedByWeekDay[day][classOrder] = _.groupBy(
-        groupedByWeekDay[day][classOrder],
-        "week",
-      );
-    }
-  }
+  Object.keys(res.scheduleClassesFirstWeek).forEach((day: string) => {
+    res.scheduleClassesFirstWeek[day].sort((a, b) => a.order - b.order);
+  });
+  Object.keys(res.scheduleClassesSecondWeek).forEach((day: string) => {
+    res.scheduleClassesSecondWeek[day].sort((a, b) => a.order - b.order);
+  });
 
-  return groupedByWeekDay;
+  return res;
 }
-
-const mapClassType = {
-  [ClassType.PRACTICE_CLASS]: "ПЗ",
-  [ClassType.LAB]: "ЛР",
-  [ClassType.LECTION]: "ЛК",
-};
 
 export function mapScheduleClassToEvent(scheduleClass) {
   const { weekDay, week, semester, scheduleTime } = scheduleClass;

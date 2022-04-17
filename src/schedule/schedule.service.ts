@@ -5,12 +5,11 @@ import { ScheduleClasses, ScheduleTime } from "@prisma/client";
 import { UpdateClassDto } from "./dto/update-class.dto";
 import * as _ from "lodash";
 import moment from "moment";
-import { ClassType, Week } from "../common/enum";
+import { ClassType, Week, WeekDay } from "../common/enum";
 import {
   formatScheduleClassesList,
   mapScheduleClassToEvent,
 } from "./formatters";
-import { share } from "rxjs";
 
 @Injectable()
 export class ScheduleService {
@@ -66,7 +65,7 @@ export class ScheduleService {
     return created;
   }
 
-  public async getScheduleClassOfDepartmentForCurrentSemester() {
+  public async getScheduleClassOfDepartment(semesterId: string) {
     const teachers = await this.prismaService.user.findMany({
       select: {
         id: true,
@@ -82,16 +81,73 @@ export class ScheduleService {
     const entries = [];
 
     for await (const teacher of teachers) {
-      const scheduleClasses =
-        await this.getScheduleClassesByTeacherForCurrentSem(teacher.id);
+      const scheduleClasses = await this.getScheduleClassesBySemester(
+        teacher.id,
+        semesterId,
+      );
 
       entries.push({
         teacher: `${teacher.firstName} ${teacher.middleName[0]}. ${teacher.lastName[0]}.`,
-        scheduleClasses: scheduleClasses.list,
+        scheduleClasses: scheduleClasses,
       });
     }
 
     return entries;
+  }
+
+  public async getScheduleClassesBySemester(
+    teacherId: string,
+    semesterId: string,
+  ) {
+    const scheduleClasses = await this.prismaService.scheduleClasses.findMany({
+      select: {
+        weekDay: true,
+        week: true,
+        subject: {
+          select: {
+            shortName: true,
+          },
+        },
+        room: {
+          select: {
+            room: true,
+            campus: true,
+          },
+        },
+        type: true,
+        GroupScheduleClass: {
+          select: {
+            group: {
+              select: {
+                courese: true,
+                group: true,
+                subGroup: true,
+                faculty: {
+                  select: {
+                    shortName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        scheduleTime: {
+          select: {
+            startHours: true,
+            startMinute: true,
+            endHours: true,
+            endMinute: true,
+          },
+        },
+      },
+      where: {
+        teacherId,
+        semesterId,
+      },
+    });
+
+    const formatted = formatScheduleClassesList(scheduleClasses);
+    return formatted;
   }
 
   public async getScheduleClassesByTeacherForCurrentSem(teacherId: string) {
@@ -189,48 +245,6 @@ export class ScheduleService {
     return list.map((sc) => mapScheduleClassToEvent(sc));
   }
 
-  public async fillScheduleTimeTable() {
-    const times = [
-      {
-        order: 1,
-        startHours: 8,
-        startMinute: 0,
-        endHours: 9,
-        endMinute: 20,
-      },
-      {
-        order: 2,
-        startHours: 9,
-        startMinute: 35,
-        endHours: 10,
-        endMinute: 55,
-      },
-      {
-        order: 3,
-        startHours: 11,
-        startMinute: 25,
-        endHours: 12,
-        endMinute: 45,
-      },
-      {
-        order: 4,
-        startHours: 13,
-        startMinute: 0,
-        endHours: 14,
-        endMinute: 20,
-      },
-    ];
-
-    const results = [];
-
-    for await (const item of times) {
-      const result = await this.prismaService.scheduleTime.create({
-        data: item,
-      });
-      results.push(result);
-    }
-  }
-
   public async getListOfTimesClasses() {
     const list = await this.prismaService.scheduleTime.findMany();
     return {
@@ -241,16 +255,6 @@ export class ScheduleService {
       })),
       total: list.length,
     };
-  }
-
-  private deleteNullFields(obj: any) {
-    Object.keys(obj).forEach((key: string) => {
-      if (obj[key] === null) {
-        delete obj[key];
-      }
-    });
-
-    return obj;
   }
 
   public async getCurrentSemester() {
