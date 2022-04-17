@@ -8,6 +8,7 @@ import { SubjectModule } from "./subject/subject.module";
 import { EventModule } from "./event/event.module";
 import { RoomModule } from "./room/room.module";
 import { GroupsModule } from "./groups/groups.module";
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { GroupsModule } from "./groups/groups.module";
     EventModule,
     RoomModule,
     GroupsModule,
+    DocumentsModule,
   ],
   controllers: [],
   providers: [],

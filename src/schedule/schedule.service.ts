@@ -8,6 +8,7 @@ import moment from "moment";
 import { ClassType, Week, WeekDay } from "../common/enum";
 import {
   formatScheduleClassesList,
+  formatScheduleClassesListForDepartment,
   mapScheduleClassToEvent,
 } from "./formatters";
 
@@ -86,13 +87,13 @@ export class ScheduleService {
         semesterId,
       );
 
-      entries.push({
-        teacher: `${teacher.firstName} ${teacher.middleName[0]}. ${teacher.lastName[0]}.`,
-        scheduleClasses: scheduleClasses,
-      });
+      entries.push([
+        `${teacher.firstName} ${teacher.middleName[0]}. ${teacher.lastName[0]}.`,
+        scheduleClasses,
+      ]);
     }
 
-    return entries;
+    return Object.fromEntries(entries);
   }
 
   public async getScheduleClassesBySemester(
@@ -131,12 +132,13 @@ export class ScheduleService {
             },
           },
         },
-        scheduleTime: {
+        scheduleTime: true,
+        teacher: {
           select: {
-            startHours: true,
-            startMinute: true,
-            endHours: true,
-            endMinute: true,
+            id: true,
+            firstName: true,
+            middleName: true,
+            lastName: true,
           },
         },
       },
@@ -146,7 +148,8 @@ export class ScheduleService {
       },
     });
 
-    const formatted = formatScheduleClassesList(scheduleClasses);
+    const formatted = formatScheduleClassesListForDepartment(scheduleClasses);
+
     return formatted;
   }
 
