@@ -3,6 +3,10 @@ export enum UserRole {
   ADMIN = "ADMIN",
 }
 
+export enum ScheduleClassUpdateType {
+  SWAP = "SWAP",
+}
+
 export enum EventType {
   LECTION = "LECTION",
   PRACTICE_CLASS = "PRACTICE_CLASS",

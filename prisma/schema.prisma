@@ -48,6 +48,12 @@ enum Week {
   WEEKLY
 }
 
+enum ScheduleClassUpdateType {
+  SWAP
+  CANCEL
+  RESCHEDULED
+}
+
 model User {
   id             String    @id @default(value: uuid()) @db.Uuid
   email          String    @unique @db.VarChar()
@@ -63,9 +69,10 @@ model User {
   invitedBy      String?   @db.Uuid
   isActive       Boolean   @default(false)
 
-  ScheduleClasses ScheduleClasses[] @relation("teaching")
-  Event           Event[]           @relation("UserOnEvent")
-  Subject         Subject[]
+  ScheduleClasses     ScheduleClasses[]     @relation("teaching")
+  Subject             Subject[]
+  StudyLoad           StudyLoad[]
+  ScheduleClassUpdate ScheduleClassUpdate[]
   @@map("user")
 }
 
@@ -80,6 +87,7 @@ model Subject {
   deletedBy String?   @db.Uuid
 
   ScheduleClasses ScheduleClasses[] @relation("SubjectOnScheduleClasses")
+  StudyLoad       StudyLoad[]
   @@map("subject")
 }
 
@@ -103,7 +111,8 @@ model ScheduleClasses {
   createdBy      String       @db.Uuid
   updatedBy      String?      @db.Uuid
 
-  GroupScheduleClass GroupScheduleClass[]
+  GroupScheduleClass  GroupScheduleClass[]
+  ScheduleClassUpdate ScheduleClassUpdate[]
   @@map("schedule-classes")
 }
 
@@ -116,36 +125,6 @@ model GroupScheduleClass {
 
 
   @@map("group_schedule-classes")
-}
-
-model Event {
-  id             String       @id @default(value: uuid()) @db.Uuid
-  user           User         @relation(name: "UserOnEvent", fields: [userId], references: [id])
-  userId         String       @db.Uuid
-  type           EventType
-  title          String       @db.VarChar()
-  note           String
-  startDate      DateTime
-  endDate        DateTime
-  isRecurring    Boolean
-  isAllDay       Boolean
-  rRule          String?
-  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
-  academicYearId String       @db.Uuid
-  createdAt      DateTime     @default(value: now())
-  createdBy      String       @db.Uuid
-
-  ExEvent ExEvent[]
-  @@map("event")
-}
-
-model ExEvent {
-  id            String @id @default(value: uuid()) @db.Uuid
-  event         Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  eventId       String @db.Uuid
-  exceptionDate String
-
-  @@map("event-exception")
 }
 
 model Faculty {
@@ -173,8 +152,8 @@ model Group {
 
 model Room {
   id     String   @id @default(value: uuid()) @db.Uuid
-  campus Int
-  room   Int
+  campus String   @db.VarChar(5)
+  room   String   @db.VarChar(5)
   type   RoomType
 
   ScheduleClasses ScheduleClasses[] @relation("RoomOnScheduleClasses")
@@ -202,8 +181,9 @@ model Semester {
   isArchived     Boolean?     @default(value: false)
 
   ScheduleClasses ScheduleClasses[] @relation("SemesterOnScheduleClasees")
+  Group           Group[]
+  StudyLoad       StudyLoad[]
   @@map("semester")
-  Group Group[]
 }
 
 model AcademicYear {
@@ -213,6 +193,37 @@ model AcademicYear {
   isArchived Boolean? @default(value: false)
 
   Semester Semester[]
-  Event    Event[]
   @@map("academic-year")
+}
+
+model StudyLoad {
+  id         String    @id @default(value: uuid()) @db.Uuid
+  type       EventType
+  subject    Subject?  @relation(fields: [subjectId], references: [id])
+  subjectId  String?   @db.Uuid
+  semester   Semester  @relation(fields: [semesterId], references: [id])
+  semesterId String    @db.Uuid
+  duration   Float
+  date       DateTime
+  createdAt  DateTime? @default(value: now())
+  teacher    User      @relation(fields: [teacherId], references: [id])
+  teacherId  String    @db.Uuid
+
+  @@map("study-load")
+}
+
+model ScheduleClassUpdate {
+  id              String                  @id @default(value: uuid()) @db.Uuid
+  scheduleClass   ScheduleClasses         @relation(fields: [scheduleClassId], references: [id])
+  scheduleClassId String                  @db.Uuid
+  type            ScheduleClassUpdateType
+  teacher         User?                   @relation(fields: [teacherId], references: [id])
+  teacherId       String?                 @db.Uuid
+  classDate       DateTime
+  rescheduleDate  DateTime?
+  createdAt       DateTime?               @default(value: now())
+  reason          String
+  createdBy       String                  @db.Uuid
+
+  @@map("schedule-class-update")
 }

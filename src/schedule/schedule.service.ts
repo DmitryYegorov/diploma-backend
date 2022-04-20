@@ -5,7 +5,12 @@ import { ScheduleClasses, ScheduleTime } from "@prisma/client";
 import { UpdateClassDto } from "./dto/update-class.dto";
 import * as _ from "lodash";
 import moment from "moment";
-import { ClassType, Week, WeekDay } from "../common/enum";
+import {
+  ClassType,
+  ScheduleClassUpdateType,
+  Week,
+  WeekDay,
+} from "../common/enum";
 import {
   formatScheduleClassesList,
   formatScheduleClassesListForDepartment,
@@ -218,7 +223,7 @@ export class ScheduleService {
     };
   }
 
-  public async getScheduleClassesListByTeacherIdForCurrentSemester(
+  public async getScheduleClassesListByTeacherId(
     teacherId: string,
   ): Promise<Array<any>> {
     const currentSemester = await this.getCurrentSemester();
@@ -226,6 +231,7 @@ export class ScheduleService {
     const list = await this.prismaService.scheduleClasses.findMany({
       where: { teacherId, semesterId: currentSemester.id },
       include: {
+        ScheduleClassUpdate: true,
         subject: {
           select: {
             name: true,
@@ -234,6 +240,7 @@ export class ScheduleService {
         },
         teacher: {
           select: {
+            id: true,
             firstName: true,
             lastName: true,
             middleName: true,
@@ -246,6 +253,35 @@ export class ScheduleService {
     });
 
     return list.map((sc) => mapScheduleClassToEvent(sc));
+  }
+
+  public async swapTeacherOnScheduleClass(
+    scheduleClassId: string,
+    classDate: Date,
+    teacherId: string,
+    reason: string,
+    initiator: string,
+  ) {
+    console.log({
+      scheduleClassId,
+      classDate,
+      teacherId,
+      reason,
+      initiator,
+    });
+
+    const update = await this.prismaService.scheduleClassUpdate.create({
+      data: {
+        scheduleClassId,
+        teacherId,
+        type: ScheduleClassUpdateType.SWAP,
+        reason,
+        classDate,
+        createdBy: initiator,
+      },
+    });
+
+    return update;
   }
 
   public async getListOfTimesClasses() {

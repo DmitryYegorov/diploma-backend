@@ -1,7 +1,7 @@
 import * as _ from "lodash";
 import { ClassType, Week } from "../../common/enum";
 import * as moment from "moment";
-import { RRule } from "rrule";
+import { RRule, RRuleSet } from "rrule";
 import { WeekDayMapToRrule, WeekDaysMapToString } from "../../common/maps";
 
 export function formatScheduleClassesList(classes: Array<any>) {
@@ -125,7 +125,9 @@ export function formatScheduleClassesListForDepartment(scheduleClasses) {
 }
 
 export function mapScheduleClassToEvent(scheduleClass) {
-  const { weekDay, week, semester, scheduleTime } = scheduleClass;
+  const { weekDay, week, semester, scheduleTime, ScheduleClassUpdate } =
+    scheduleClass;
+
   let startDate;
 
   if (week === Week.WEEKLY || week === Week.FIRST) {
@@ -138,8 +140,6 @@ export function mapScheduleClassToEvent(scheduleClass) {
       .toDate();
   }
 
-  console.log({ week, startDate });
-
   const startTime = new Date(
     startDate.getFullYear(),
     startDate.getMonth(),
@@ -149,7 +149,6 @@ export function mapScheduleClassToEvent(scheduleClass) {
     0,
   );
 
-  console.log({ week, startTime });
   const endTime = new Date(
     startDate.getFullYear(),
     startDate.getMonth(),
@@ -167,6 +166,12 @@ export function mapScheduleClassToEvent(scheduleClass) {
     until: semester.endDate,
   }).toString();
 
+  const exDate = ScheduleClassUpdate.map((update) =>
+    update.teacherId !== scheduleClass.teacher.id ? update.classDate : null,
+  )
+    .filter((exd) => exd !== null)
+    .join(",");
+
   return {
     id: scheduleClass.id,
     subject: {
@@ -176,10 +181,12 @@ export function mapScheduleClassToEvent(scheduleClass) {
     title: `${mapClassType[scheduleClass.type]} ${scheduleClass.subject.name}`,
     type: scheduleClass.type,
     teacher: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName} ${scheduleClass.teacher.lastName}`,
+    teacherId: scheduleClass.teacher.id,
     room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
     startDate: startTime,
     endDate: endTime,
-    rRule,
+    rRule: rRule,
     isScheduleClass: true,
+    exDate,
   };
 }

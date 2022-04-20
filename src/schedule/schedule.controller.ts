@@ -47,9 +47,9 @@ export class ScheduleController {
     );
   }
 
-  @Get("/department/:semesterId")
-  //@UseGuards(JwtAuthGuard)
-  public async getScheduleClassOfDepartmentForCurrentSemester(@Param() param) {
+  @Get("/department/semester/:semesterId")
+  @UseGuards(JwtAuthGuard)
+  public async getScheduleClassOfDepartment(@Param() param) {
     return this.scheduleService.getScheduleClassOfDepartment(param.semesterId);
   }
 
@@ -61,5 +61,32 @@ export class ScheduleController {
   @Get("/semester/current")
   public async getCurrentSemester() {
     return this.scheduleService.getCurrentSemester();
+  }
+
+  @Get("/calendar/my")
+  @UseGuards(JwtAuthGuard)
+  public async getScheduleClassesByTeacherToCalendar(@Request() req) {
+    const teacherId = req.user.id;
+
+    const list = await this.scheduleService.getScheduleClassesListByTeacherId(
+      teacherId,
+    );
+
+    return { list, total: list.length };
+  }
+
+  @Post("/swap-teacher")
+  @UseGuards(JwtAuthGuard)
+  public async swapTeacherOnScheduleClass(@Request() req, @Body() body) {
+    const initiator = req.user.id;
+    const { scheduleClassId, teacherId, reason, classDate } = body;
+
+    return this.scheduleService.swapTeacherOnScheduleClass(
+      scheduleClassId,
+      classDate,
+      teacherId,
+      reason,
+      initiator,
+    );
   }
 }
