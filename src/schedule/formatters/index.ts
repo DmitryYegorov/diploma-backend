@@ -1,8 +1,9 @@
 import * as _ from "lodash";
-import { ClassType, Week } from "../../common/enum";
+import { ClassType, ScheduleClassUpdateType, Week } from "../../common/enum";
 import * as moment from "moment";
 import { RRule, RRuleSet } from "rrule";
 import { WeekDayMapToRrule, WeekDaysMapToString } from "../../common/maps";
+import { ScheduleClassUpdate } from "@prisma/client";
 
 export function formatScheduleClassesList(classes: Array<any>) {
   const mappedList = classes.map((item) => {
@@ -124,6 +125,49 @@ export function formatScheduleClassesListForDepartment(scheduleClasses) {
   return groupedByWeekDay;
 }
 
+export function mapScheduleClassUpdateToEvent(scheduleClassUpdate) {
+  const { scheduleClass, type, teacher, classDate } = scheduleClassUpdate;
+
+  const startDate = new Date(
+    classDate.getFullYear(),
+    classDate.getMonth(),
+    classDate.getDate(),
+    scheduleClass.scheduleTime.startHours,
+    scheduleClass.scheduleTime.startMinute,
+    0,
+  );
+  const endDate = new Date(
+    classDate.getFullYear(),
+    classDate.getMonth(),
+    classDate.getDate(),
+    scheduleClass.scheduleTime.endHours,
+    scheduleClass.scheduleTime.endMinute,
+    0,
+  );
+
+  console.log(scheduleClass.type);
+
+  if (type === ScheduleClassUpdateType.SWAP) {
+    return {
+      id: scheduleClass.id,
+      subject: {
+        name: scheduleClass.subject.name,
+        shortName: scheduleClass.subject.shortName,
+      },
+      title: `${mapClassType[scheduleClass.type]} ${
+        scheduleClass.subject.name
+      }`,
+      type: type,
+      teacher: `${teacher.firstName} ${teacher.middleName} ${teacher.lastName}`,
+      teacherId: teacher.id,
+      room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
+      startDate,
+      endDate,
+      rRule: null,
+    };
+  }
+}
+
 export function mapScheduleClassToEvent(scheduleClass) {
   const { weekDay, week, semester, scheduleTime, ScheduleClassUpdate } =
     scheduleClass;
@@ -186,7 +230,6 @@ export function mapScheduleClassToEvent(scheduleClass) {
     startDate: startTime,
     endDate: endTime,
     rRule: rRule,
-    isScheduleClass: true,
     exDate,
   };
 }

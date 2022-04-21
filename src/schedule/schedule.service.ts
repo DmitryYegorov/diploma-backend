@@ -15,6 +15,7 @@ import {
   formatScheduleClassesList,
   formatScheduleClassesListForDepartment,
   mapScheduleClassToEvent,
+  mapScheduleClassUpdateToEvent,
 } from "./formatters";
 
 @Injectable()
@@ -252,7 +253,43 @@ export class ScheduleService {
       },
     });
 
-    return list.map((sc) => mapScheduleClassToEvent(sc));
+    const updated = await this.prismaService.scheduleClassUpdate.findMany({
+      where: { teacherId },
+      select: {
+        scheduleClass: {
+          select: {
+            subject: {
+              select: {
+                name: true,
+                shortName: true,
+              },
+            },
+            teacher: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                middleName: true,
+              },
+            },
+            room: true,
+            scheduleTime: true,
+            semester: true,
+            type: true,
+          },
+        },
+        classDate: true,
+        teacher: true,
+        type: true,
+      },
+    });
+
+    return [
+      ...list.map((sc) => mapScheduleClassToEvent(sc)),
+      ...(updated.length
+        ? updated.map((u) => mapScheduleClassUpdateToEvent(u))
+        : []),
+    ];
   }
 
   public async swapTeacherOnScheduleClass(
@@ -262,14 +299,6 @@ export class ScheduleService {
     reason: string,
     initiator: string,
   ) {
-    console.log({
-      scheduleClassId,
-      classDate,
-      teacherId,
-      reason,
-      initiator,
-    });
-
     const update = await this.prismaService.scheduleClassUpdate.create({
       data: {
         scheduleClassId,
