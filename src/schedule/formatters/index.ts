@@ -126,28 +126,26 @@ export function formatScheduleClassesListForDepartment(scheduleClasses) {
 }
 
 export function mapScheduleClassUpdateToEvent(scheduleClassUpdate) {
-  const { scheduleClass, type, teacher, classDate } = scheduleClassUpdate;
-
-  const startDate = new Date(
-    classDate.getFullYear(),
-    classDate.getMonth(),
-    classDate.getDate(),
-    scheduleClass.scheduleTime.startHours,
-    scheduleClass.scheduleTime.startMinute,
-    0,
-  );
-  const endDate = new Date(
-    classDate.getFullYear(),
-    classDate.getMonth(),
-    classDate.getDate(),
-    scheduleClass.scheduleTime.endHours,
-    scheduleClass.scheduleTime.endMinute,
-    0,
-  );
-
-  console.log(scheduleClass.type);
+  const { scheduleClass, type, teacher, classDate, rescheduleDate } =
+    scheduleClassUpdate;
 
   if (type === ScheduleClassUpdateType.SWAP) {
+    const startDate = new Date(
+      classDate.getFullYear(),
+      classDate.getMonth(),
+      classDate.getDate(),
+      scheduleClass.scheduleTime.startHours,
+      scheduleClass.scheduleTime.startMinute,
+      0,
+    );
+    const endDate = new Date(
+      classDate.getFullYear(),
+      classDate.getMonth(),
+      classDate.getDate(),
+      scheduleClass.scheduleTime.endHours,
+      scheduleClass.scheduleTime.endMinute,
+      0,
+    );
     return {
       id: scheduleClass.id,
       subject: {
@@ -160,6 +158,40 @@ export function mapScheduleClassUpdateToEvent(scheduleClassUpdate) {
       type: type,
       teacher: `${teacher.firstName} ${teacher.middleName} ${teacher.lastName}`,
       teacherId: teacher.id,
+      room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
+      startDate,
+      endDate,
+      rRule: null,
+    };
+  } else if (type === ScheduleClassUpdateType.RESCHEDULED) {
+    const startDate = new Date(
+      rescheduleDate.getFullYear(),
+      rescheduleDate.getMonth(),
+      rescheduleDate.getDate(),
+      scheduleClass.scheduleTime.startHours,
+      scheduleClass.scheduleTime.startMinute,
+      0,
+    );
+    const endDate = new Date(
+      rescheduleDate.getFullYear(),
+      rescheduleDate.getMonth(),
+      rescheduleDate.getDate(),
+      scheduleClass.scheduleTime.endHours,
+      scheduleClass.scheduleTime.endMinute,
+      0,
+    );
+    return {
+      id: scheduleClass.id,
+      subject: {
+        name: scheduleClass.subject.name,
+        shortName: scheduleClass.subject.shortName,
+      },
+      title: `${mapClassType[scheduleClass.type]} ${
+        scheduleClass.subject.name
+      }`,
+      type: scheduleClass.type,
+      teacher: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName} ${scheduleClass.teacher.lastName}`,
+      teacherId: scheduleClass.teacher.id,
       room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
       startDate,
       endDate,
@@ -211,7 +243,10 @@ export function mapScheduleClassToEvent(scheduleClass) {
   }).toString();
 
   const exDate = ScheduleClassUpdate.map((update) =>
-    update.teacherId !== scheduleClass.teacher.id ? update.classDate : null,
+    update.type === ScheduleClassUpdateType.SWAP &&
+    update.teacherId === scheduleClass.teacher.id
+      ? null
+      : update.classDate,
   )
     .filter((exd) => exd !== null)
     .join(",");
@@ -232,4 +267,29 @@ export function mapScheduleClassToEvent(scheduleClass) {
     rRule: rRule,
     exDate,
   };
+}
+
+export function mapScheduleClassUpdateAsLogItem(update) {
+  const baseData = {
+    classDate: moment(update.classDate).format("yyyy-MM-DD"),
+    type: update.type,
+    scheduleClass: `${mapClassType[update.scheduleClass.type]} ${
+      update.scheduleClass.subject.shortName
+    }`,
+    teacher: `${update.scheduleClass.teacher.firstName} ${update.scheduleClass.teacher.middleName} ${update.scheduleClass.teacher.lastName}`,
+  };
+
+  let updatedData = {};
+  if (update.type === ScheduleClassUpdateType.SWAP) {
+    updatedData = {
+      newTeacher: `${update.teacher.firstName} ${update.teacher.middleName} ${update.teacher.lastName}`,
+    };
+  }
+  if (update.type === ScheduleClassUpdateType.RESCHEDULED) {
+    updatedData = {
+      rescheduleDate: moment(update.rescheduleDate).format("yyyy-MM-DD"),
+    };
+  }
+
+  return { ...baseData, ...updatedData };
 }

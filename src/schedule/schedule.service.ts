@@ -1,22 +1,15 @@
 import { Injectable } from "@nestjs/common";
-import { CreateClassDto } from "./dto/create-class.dto";
 import { PrismaService } from "../prisma/prisma.service";
-import { ScheduleClasses, ScheduleTime } from "@prisma/client";
-import { UpdateClassDto } from "./dto/update-class.dto";
 import * as _ from "lodash";
-import moment from "moment";
-import {
-  ClassType,
-  ScheduleClassUpdateType,
-  Week,
-  WeekDay,
-} from "../common/enum";
+import { ClassType, ScheduleClassUpdateType, Week } from "../common/enum";
 import {
   formatScheduleClassesList,
   formatScheduleClassesListForDepartment,
   mapScheduleClassToEvent,
+  mapScheduleClassUpdateAsLogItem,
   mapScheduleClassUpdateToEvent,
 } from "./formatters";
+import { UpdateScheduleClassDto } from "./dto/update-schedule-class.dto";
 
 @Injectable()
 export class ScheduleService {
@@ -228,6 +221,34 @@ export class ScheduleService {
     teacherId: string,
   ): Promise<Array<any>> {
     const currentSemester = await this.getCurrentSemester();
+    const updatedSelect = {
+      scheduleClass: {
+        select: {
+          subject: {
+            select: {
+              name: true,
+              shortName: true,
+            },
+          },
+          teacher: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              middleName: true,
+            },
+          },
+          room: true,
+          scheduleTime: true,
+          semester: true,
+          type: true,
+        },
+      },
+      classDate: true,
+      teacher: true,
+      type: true,
+      rescheduleDate: true,
+    };
 
     const list = await this.prismaService.scheduleClasses.findMany({
       where: { teacherId, semesterId: currentSemester.id },
@@ -253,36 +274,23 @@ export class ScheduleService {
       },
     });
 
-    const updated = await this.prismaService.scheduleClassUpdate.findMany({
-      where: { teacherId },
-      select: {
-        scheduleClass: {
-          select: {
-            subject: {
-              select: {
-                name: true,
-                shortName: true,
-              },
-            },
-            teacher: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                middleName: true,
-              },
-            },
-            room: true,
-            scheduleTime: true,
-            semester: true,
-            type: true,
-          },
+    const [swaps, other] = await Promise.all([
+      this.prismaService.scheduleClassUpdate.findMany({
+        where: { teacherId, type: ScheduleClassUpdateType.SWAP },
+        select: updatedSelect,
+      }),
+      this.prismaService.scheduleClassUpdate.findMany({
+        where: {
+          createdBy: teacherId,
+          type: { not: ScheduleClassUpdateType.SWAP },
         },
-        classDate: true,
-        teacher: true,
-        type: true,
-      },
-    });
+        select: updatedSelect,
+      }),
+    ]);
+
+    const updated = [...swaps, ...other].filter(
+      (u) => u.type !== ScheduleClassUpdateType.CANCEL,
+    );
 
     return [
       ...list.map((sc) => mapScheduleClassToEvent(sc)),
@@ -353,5 +361,80 @@ export class ScheduleService {
         endDate: semester.academicYear.endDate,
       },
     };
+  }
+
+  public async updateScheduleClass(
+    data: UpdateScheduleClassDto & { createdBy: string },
+  ) {
+    const {
+      scheduleClassId,
+      type,
+      reason,
+      rescheduleDate,
+      classDate,
+      createdBy,
+    } = data;
+
+    return this.prismaService.scheduleClassUpdate.create({
+      data: {
+        scheduleClassId,
+        type,
+        reason,
+        classDate,
+        createdBy,
+        rescheduleDate,
+      },
+    });
+  }
+
+  public async getScheduleUpdatesByPeriod(data: {
+    teacherId: string;
+    startDate: Date;
+    endDate: Date;
+  }) {
+    const { teacherId, startDate, endDate } = data;
+    const updates = await this.prismaService.scheduleClassUpdate.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        classDate: true,
+        type: true,
+        rescheduleDate: true,
+        scheduleClass: {
+          select: {
+            type: true,
+            subject: {
+              select: {
+                shortName: true,
+              },
+            },
+            teacher: {
+              select: {
+                firstName: true,
+                middleName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+        teacher: {
+          select: {
+            firstName: true,
+            middleName: true,
+            lastName: true,
+          },
+        },
+        reason: true,
+        createdAt: true,
+      },
+      where: {
+        OR: [{ teacherId }, { createdBy: teacherId }],
+        classDate: {
+          gte: new Date(startDate),
+          lte: new Date(endDate),
+        },
+      },
+    });
+
+    return updates.map((u) => mapScheduleClassUpdateAsLogItem(u));
   }
 }

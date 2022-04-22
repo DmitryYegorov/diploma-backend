@@ -5,6 +5,8 @@ export enum UserRole {
 
 export enum ScheduleClassUpdateType {
   SWAP = "SWAP",
+  CANCEL = "CANCEL",
+  RESCHEDULED = "RESCHEDULED",
 }
 
 export enum EventType {

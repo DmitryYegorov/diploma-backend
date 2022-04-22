@@ -8,11 +8,12 @@ import {
   Param,
   Delete,
   Body,
+  Query,
 } from "@nestjs/common";
 import { ScheduleService } from "./schedule.service";
 import { JwtAuthGuard } from "../auth/guards/auth.guard";
 import { CreateClassDto } from "./dto/create-class.dto";
-import { UpdateClassDto } from "./dto/update-class.dto";
+import { UpdateScheduleClassDto } from "./dto/update-schedule-class.dto";
 
 @Controller("schedule")
 export class ScheduleController {
@@ -88,5 +89,28 @@ export class ScheduleController {
       reason,
       initiator,
     );
+  }
+
+  @Post("/update")
+  @UseGuards(JwtAuthGuard)
+  public async updateScheduleClass(
+    @Request() req,
+    @Body() body: UpdateScheduleClassDto,
+  ) {
+    const createdBy: string = req.user.id;
+
+    return this.scheduleService.updateScheduleClass({ ...body, createdBy });
+  }
+
+  @Get("/update")
+  @UseGuards(JwtAuthGuard)
+  public async getUpdatesList(@Request() req, @Query() query) {
+    const teacherId = req.user.id;
+    const { startDate, endDate } = query;
+    return this.scheduleService.getScheduleUpdatesByPeriod({
+      teacherId,
+      startDate,
+      endDate,
+    });
   }
 }
