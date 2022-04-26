@@ -47,7 +47,7 @@ export class AuthService {
         },
       );
       const access = this.jwtService.sign(
-        { id: user.id, email, password },
+        { id: user.id, email, password, role: user.role },
         { expiresIn: "1d" },
       );
 

@@ -8,11 +8,12 @@ import {
   Param,
   Delete,
   Body,
+  Query,
 } from "@nestjs/common";
 import { ScheduleService } from "./schedule.service";
 import { JwtAuthGuard } from "../auth/guards/auth.guard";
 import { CreateClassDto } from "./dto/create-class.dto";
-import { UpdateClassDto } from "./dto/update-class.dto";
+import { UpdateScheduleClassDto } from "./dto/update-schedule-class.dto";
 
 @Controller("schedule")
 export class ScheduleController {
@@ -25,28 +26,13 @@ export class ScheduleController {
     @Body() body: CreateClassDto[],
   ) {
     const userId = req.user.id;
-    const reqData = body.map((item) => ({
-      ...item,
+    const reqData = {
+      ...body,
       createdBy: userId,
       teacherId: userId,
-    }));
+    };
 
     return this.scheduleService.createScheduleClasses(reqData);
-  }
-
-  @Put()
-  @UseGuards(JwtAuthGuard)
-  public async updateManyScheduleClasses(
-    @Request() req,
-    @Body() body: UpdateClassDto[],
-  ) {
-    const userId = req.user.id;
-    const reqData: UpdateClassDto[] = body.map((item) => ({
-      ...item,
-      updatedBy: userId,
-    }));
-
-    return this.scheduleService.updateManyScheduleClass(reqData);
   }
 
   @Get()
@@ -62,6 +48,12 @@ export class ScheduleController {
     );
   }
 
+  @Get("/department/semester/:semesterId")
+  @UseGuards(JwtAuthGuard)
+  public async getScheduleClassOfDepartment(@Param() param) {
+    return this.scheduleService.getScheduleClassOfDepartment(param.semesterId);
+  }
+
   @Get("/time")
   public async getListOfTimesClasses() {
     return this.scheduleService.getListOfTimesClasses();
@@ -70,5 +62,55 @@ export class ScheduleController {
   @Get("/semester/current")
   public async getCurrentSemester() {
     return this.scheduleService.getCurrentSemester();
+  }
+
+  @Get("/calendar/my")
+  @UseGuards(JwtAuthGuard)
+  public async getScheduleClassesByTeacherToCalendar(@Request() req) {
+    const teacherId = req.user.id;
+
+    const list = await this.scheduleService.getScheduleClassesListByTeacherId(
+      teacherId,
+    );
+
+    return { list, total: list.length };
+  }
+
+  @Post("/swap-teacher")
+  @UseGuards(JwtAuthGuard)
+  public async swapTeacherOnScheduleClass(@Request() req, @Body() body) {
+    const initiator = req.user.id;
+    const { scheduleClassId, teacherId, reason, classDate } = body;
+
+    return this.scheduleService.swapTeacherOnScheduleClass(
+      scheduleClassId,
+      classDate,
+      teacherId,
+      reason,
+      initiator,
+    );
+  }
+
+  @Post("/update")
+  @UseGuards(JwtAuthGuard)
+  public async updateScheduleClass(
+    @Request() req,
+    @Body() body: UpdateScheduleClassDto,
+  ) {
+    const createdBy: string = req.user.id;
+
+    return this.scheduleService.updateScheduleClass({ ...body, createdBy });
+  }
+
+  @Get("/updates-list")
+  @UseGuards(JwtAuthGuard)
+  public async getUpdatesList(@Request() req, @Query() query) {
+    const teacherId = req.user.id;
+    const { startDate, endDate } = query;
+    return this.scheduleService.getScheduleUpdatesByPeriod({
+      teacherId,
+      startDate,
+      endDate,
+    });
   }
 }

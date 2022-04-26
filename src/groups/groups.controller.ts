@@ -6,7 +6,7 @@ import { JwtAuthGuard } from "../auth/guards/auth.guard";
 export class GroupsController {
   constructor(private groupsService: GroupsService) {}
 
-  @Get("/with-faculties")
+  @Get()
   @UseGuards(JwtAuthGuard)
   public async getGroupsWithFaculties() {
     const list = await this.groupsService.getListGroupsWithFaculties();

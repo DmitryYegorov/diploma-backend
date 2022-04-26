@@ -10,3 +10,13 @@ export const WeekDayMapToRrule = {
   [WeekDay.SATURDAY]: RRule.SA,
   [WeekDay.SUNDAY]: RRule.SU,
 };
+
+export const WeekDaysMapToString = {
+  [WeekDay.MONDAY]: "Понедельник",
+  [WeekDay.TUESDAY]: "Вторник",
+  [WeekDay.WEDNESDAY]: "Среда",
+  [WeekDay.THURSDAY]: "Четверг",
+  [WeekDay.FRIDAY]: "Пятница",
+  [WeekDay.SATURDAY]: "Суббота",
+  [WeekDay.SUNDAY]: "Воскресенье",
+};

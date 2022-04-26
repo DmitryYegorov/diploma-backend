@@ -1,8 +1,9 @@
 import * as _ from "lodash";
-import { Week } from "../../common/enum";
+import { ClassType, ScheduleClassUpdateType, Week } from "../../common/enum";
 import * as moment from "moment";
-import { RRule } from "rrule";
-import { WeekDayMapToRrule } from "../../common/maps";
+import { RRule, RRuleSet } from "rrule";
+import { WeekDayMapToRrule, WeekDaysMapToString } from "../../common/maps";
+import { ScheduleClassUpdate } from "@prisma/client";
 
 export function formatScheduleClassesList(classes: Array<any>) {
   const mappedList = classes.map((item) => {
@@ -65,30 +66,169 @@ export function formatScheduleClassesList(classes: Array<any>) {
   return groupedByWeekDay;
 }
 
+const mapClassType = {
+  [ClassType.PRACTICE_CLASS]: "ПЗ",
+  [ClassType.LAB]: "ЛР",
+  [ClassType.LECTION]: "ЛК",
+};
+export function formatScheduleClassesListForDepartment(scheduleClasses) {
+  const formatted = scheduleClasses.map((scheduleClass) => {
+    const startClassDate = moment(
+      new Date(
+        0,
+        0,
+        0,
+        scheduleClass.scheduleTime.startHours,
+        scheduleClass.scheduleTime.startMinute,
+        0,
+      ),
+    ).format("HH:mm");
+    const endClassDate = moment(
+      new Date(
+        0,
+        0,
+        0,
+        scheduleClass.scheduleTime.endHours,
+        scheduleClass.scheduleTime.endMinute,
+        0,
+      ),
+    ).format("HH:mm");
+
+    return {
+      weekDay: scheduleClass.weekDay,
+      week: scheduleClass.week,
+      order: scheduleClass.scheduleTime.order,
+      room: `${scheduleClass.room.room}-${scheduleClass.room.campus}`,
+      title: `${mapClassType[scheduleClass.type]} ${
+        scheduleClass.subject.shortName
+      }`,
+      time: `${startClassDate} - ${endClassDate}`,
+      timeId: scheduleClass.scheduleTime.id,
+      teacherId: scheduleClass.teacher.id,
+      teacherName: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName[0]}. ${scheduleClass.teacher.lastName[0]}.`,
+      group: `${scheduleClass.GroupScheduleClass[0].group.courese} ${scheduleClass.GroupScheduleClass[0].group.faculty.shortName} ${scheduleClass.GroupScheduleClass[0].group.group}`,
+    };
+  });
+
+  const groupedByWeekDay = _.groupBy(formatted, "weekDay");
+  Object.keys(groupedByWeekDay).map((weekDay) => {
+    groupedByWeekDay[weekDay] = _.groupBy(groupedByWeekDay[weekDay], "timeId");
+
+    Object.keys(groupedByWeekDay[weekDay]).forEach((timeId) => {
+      groupedByWeekDay[weekDay][timeId] = _.groupBy(
+        groupedByWeekDay[weekDay][timeId],
+        "week",
+      );
+    });
+  });
+
+  return groupedByWeekDay;
+}
+
+export function mapScheduleClassUpdateToEvent(scheduleClassUpdate) {
+  const { scheduleClass, type, teacher, classDate, rescheduleDate } =
+    scheduleClassUpdate;
+
+  if (type === ScheduleClassUpdateType.SWAP) {
+    const startDate = new Date(
+      classDate.getFullYear(),
+      classDate.getMonth(),
+      classDate.getDate(),
+      scheduleClass.scheduleTime.startHours,
+      scheduleClass.scheduleTime.startMinute,
+      0,
+    );
+    const endDate = new Date(
+      classDate.getFullYear(),
+      classDate.getMonth(),
+      classDate.getDate(),
+      scheduleClass.scheduleTime.endHours,
+      scheduleClass.scheduleTime.endMinute,
+      0,
+    );
+    return {
+      id: scheduleClass.id,
+      subject: {
+        name: scheduleClass.subject.name,
+        shortName: scheduleClass.subject.shortName,
+      },
+      title: `${mapClassType[scheduleClass.type]} ${
+        scheduleClass.subject.name
+      }`,
+      type: type,
+      teacher: `${teacher.firstName} ${teacher.middleName} ${teacher.lastName}`,
+      teacherId: teacher.id,
+      room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
+      startDate,
+      endDate,
+      rRule: null,
+    };
+  } else if (type === ScheduleClassUpdateType.RESCHEDULED) {
+    const startDate = new Date(
+      rescheduleDate.getFullYear(),
+      rescheduleDate.getMonth(),
+      rescheduleDate.getDate(),
+      scheduleClass.scheduleTime.startHours,
+      scheduleClass.scheduleTime.startMinute,
+      0,
+    );
+    const endDate = new Date(
+      rescheduleDate.getFullYear(),
+      rescheduleDate.getMonth(),
+      rescheduleDate.getDate(),
+      scheduleClass.scheduleTime.endHours,
+      scheduleClass.scheduleTime.endMinute,
+      0,
+    );
+    return {
+      id: scheduleClass.id,
+      subject: {
+        name: scheduleClass.subject.name,
+        shortName: scheduleClass.subject.shortName,
+      },
+      title: `${mapClassType[scheduleClass.type]} ${
+        scheduleClass.subject.name
+      }`,
+      type: scheduleClass.type,
+      teacher: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName} ${scheduleClass.teacher.lastName}`,
+      teacherId: scheduleClass.teacher.id,
+      room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
+      startDate,
+      endDate,
+      rRule: null,
+    };
+  }
+}
+
 export function mapScheduleClassToEvent(scheduleClass) {
-  const { weekDay, week, semester, scheduleTime } = scheduleClass;
+  const { weekDay, week, semester, scheduleTime, ScheduleClassUpdate } =
+    scheduleClass;
+
   let startDate;
 
   if (week === Week.WEEKLY || week === Week.FIRST) {
     startDate = semester.startDate;
   } else if (week === Week.SECOND) {
-    startDate = new Date(
-      moment(semester.startDate).add(1, "w").startOf("isoWeek").toDate(),
-    );
+    startDate = moment(semester.startDate)
+      .add(1, "week")
+      .startOf("isoWeek")
+      .add(1, "d")
+      .toDate();
   }
 
   const startTime = new Date(
     startDate.getFullYear(),
     startDate.getMonth(),
-    startDate.getDay(),
+    startDate.getDate(),
     scheduleTime.startHours,
     scheduleTime.startMinute,
     0,
   );
+
   const endTime = new Date(
     startDate.getFullYear(),
     startDate.getMonth(),
-    startDate.getDay(),
+    startDate.getDate(),
     scheduleTime.endHours,
     scheduleTime.endMinute,
     0,
@@ -98,9 +238,18 @@ export function mapScheduleClassToEvent(scheduleClass) {
     freq: RRule.WEEKLY,
     interval: week !== Week.WEEKLY ? 2 : 1,
     byweekday: WeekDayMapToRrule[weekDay],
-    dtstart: startTime,
+    dtstart: startDate,
     until: semester.endDate,
   }).toString();
+
+  const exDate = ScheduleClassUpdate.map((update) =>
+    update.type === ScheduleClassUpdateType.SWAP &&
+    update.teacherId === scheduleClass.teacher.id
+      ? null
+      : update.classDate,
+  )
+    .filter((exd) => exd !== null)
+    .join(",");
 
   return {
     id: scheduleClass.id,
@@ -108,13 +257,40 @@ export function mapScheduleClassToEvent(scheduleClass) {
       name: scheduleClass.subject.name,
       shortName: scheduleClass.subject.shortName,
     },
-    title: `${scheduleClass.type} ${scheduleClass.subject.name}`,
+    title: `${mapClassType[scheduleClass.type]} ${scheduleClass.subject.name}`,
     type: scheduleClass.type,
     teacher: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName} ${scheduleClass.teacher.lastName}`,
+    teacherId: scheduleClass.teacher.id,
     room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
     startDate: startTime,
     endDate: endTime,
-    rRule,
-    isScheduleClass: true,
+    rRule: rRule,
+    exDate,
   };
+}
+
+export function mapScheduleClassUpdateAsLogItem(update) {
+  const baseData = {
+    classDate: moment(update.classDate).format("yyyy-MM-DD"),
+    type: update.type,
+    scheduleClass: `${mapClassType[update.scheduleClass.type]} ${
+      update.scheduleClass.subject.shortName
+    }`,
+    reason: update.reason,
+    teacher: `${update.scheduleClass.teacher.firstName} ${update.scheduleClass.teacher.middleName} ${update.scheduleClass.teacher.lastName}`,
+  };
+
+  let updatedData = {};
+  if (update.type === ScheduleClassUpdateType.SWAP) {
+    updatedData = {
+      newTeacher: `${update.teacher.firstName} ${update.teacher.middleName} ${update.teacher.lastName}`,
+    };
+  }
+  if (update.type === ScheduleClassUpdateType.RESCHEDULED) {
+    updatedData = {
+      rescheduleDate: moment(update.rescheduleDate).format("yyyy-MM-DD"),
+    };
+  }
+
+  return { ...baseData, ...updatedData };
 }
