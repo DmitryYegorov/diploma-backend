@@ -102,7 +102,7 @@ export class ScheduleController {
     return this.scheduleService.updateScheduleClass({ ...body, createdBy });
   }
 
-  @Get("/update")
+  @Get("/updates-list")
   @UseGuards(JwtAuthGuard)
   public async getUpdatesList(@Request() req, @Query() query) {
     const teacherId = req.user.id;

@@ -276,6 +276,7 @@ export function mapScheduleClassUpdateAsLogItem(update) {
     scheduleClass: `${mapClassType[update.scheduleClass.type]} ${
       update.scheduleClass.subject.shortName
     }`,
+    reason: update.reason,
     teacher: `${update.scheduleClass.teacher.firstName} ${update.scheduleClass.teacher.middleName} ${update.scheduleClass.teacher.lastName}`,
   };
 

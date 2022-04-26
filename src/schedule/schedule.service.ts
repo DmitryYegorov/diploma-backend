@@ -389,8 +389,8 @@ export class ScheduleService {
 
   public async getScheduleUpdatesByPeriod(data: {
     teacherId: string;
-    startDate: Date;
-    endDate: Date;
+    startDate: Date | string;
+    endDate: Date | string;
   }) {
     const { teacherId, startDate, endDate } = data;
     const updates = await this.prismaService.scheduleClassUpdate.findMany({
