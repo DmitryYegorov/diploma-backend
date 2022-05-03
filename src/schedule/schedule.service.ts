@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import * as moment from "moment";
 import { PrismaService } from "../prisma/prisma.service";
 import * as _ from "lodash";
 import { ClassType, ScheduleClassUpdateType, Week } from "../common/enum";
@@ -10,14 +11,15 @@ import {
   mapScheduleClassUpdateToEvent,
 } from "./formatters";
 import { UpdateScheduleClassDto } from "./dto/update-schedule-class.dto";
+import { GetClassesByPeriodDto } from "./dto/get-classes-by-period.dto";
+import { RRule, RRuleSet, rrulestr } from "rrule";
+import { createRRuleForScheduleClass } from "../common/helpers";
 
 @Injectable()
 export class ScheduleService {
   constructor(private prismaService: PrismaService) {}
 
   public async createScheduleClasses(scheduleClass) {
-    const semester = await this.getCurrentSemester();
-
     const oldClassData = await this.prismaService.scheduleClasses.findMany({
       where: {
         teacherId: scheduleClass.teacherId,
@@ -43,7 +45,7 @@ export class ScheduleService {
       data: {
         teacherId: scheduleClass.teacherId,
         roomId: scheduleClass.roomId,
-        semesterId: semester.id,
+        semesterId: scheduleClass.semesterId,
         type: scheduleClass.type,
         subjectId: scheduleClass.subjectId,
         weekDay: scheduleClass.weekDay,
@@ -51,6 +53,8 @@ export class ScheduleService {
         week: scheduleClass.week,
         createdBy: scheduleClass.createdBy,
         createdAt: new Date(),
+        startDate: scheduleClass.startDate,
+        endDate: scheduleClass.endDate,
       },
     });
     for await (const groupId of scheduleClass.groupIds) {
@@ -152,10 +156,13 @@ export class ScheduleService {
     return formatted;
   }
 
-  public async getScheduleClassesByTeacherForCurrentSem(teacherId: string) {
-    const currentSemester = await this.getCurrentSemester();
+  public async getScheduleClassesBySemesterId(
+    teacherId: string,
+    semesterId: string,
+  ) {
+    console.log({ teacherId, semesterId });
     const scheduleClasses = await this.prismaService.scheduleClasses.findMany({
-      where: { teacherId, semesterId: currentSemester.id },
+      where: { teacherId, semesterId: semesterId },
       include: {
         subject: {
           select: {
@@ -219,13 +226,15 @@ export class ScheduleService {
 
   public async getScheduleClassesListByTeacherId(
     teacherId: string,
+    toReport = false,
   ): Promise<Array<any>> {
-    const currentSemester = await this.getCurrentSemester();
     const updatedSelect = {
       scheduleClass: {
         select: {
+          id: true,
           subject: {
             select: {
+              id: true,
               name: true,
               shortName: true,
             },
@@ -251,11 +260,12 @@ export class ScheduleService {
     };
 
     const list = await this.prismaService.scheduleClasses.findMany({
-      where: { teacherId, semesterId: currentSemester.id },
+      where: { teacherId },
       include: {
         ScheduleClassUpdate: true,
         subject: {
           select: {
+            id: true,
             name: true,
             shortName: true,
           },
@@ -293,7 +303,7 @@ export class ScheduleService {
     );
 
     return [
-      ...list.map((sc) => mapScheduleClassToEvent(sc)),
+      ...list.map((sc) => mapScheduleClassToEvent(sc, toReport)),
       ...(updated.length
         ? updated.map((u) => mapScheduleClassUpdateToEvent(u))
         : []),
@@ -330,36 +340,6 @@ export class ScheduleService {
         endTime: new Date(0, 0, 0, item.endHours, item.endMinute),
       })),
       total: list.length,
-    };
-  }
-
-  public async getCurrentSemester() {
-    const now = new Date();
-    const semester = await this.prismaService.semester.findFirst({
-      where: {
-        startDate: {
-          lte: now,
-        },
-        endDate: {
-          gte: now,
-        },
-      },
-      include: {
-        academicYear: true,
-      },
-    });
-
-    return {
-      id: semester.id,
-      semester: {
-        startDate: semester.startDate,
-        endDate: semester.endDate,
-      },
-      academicYear: {
-        id: semester.academicYearId,
-        startDate: semester.academicYear.startDate,
-        endDate: semester.academicYear.endDate,
-      },
     };
   }
 
@@ -436,5 +416,66 @@ export class ScheduleService {
     });
 
     return updates.map((u) => mapScheduleClassUpdateAsLogItem(u));
+  }
+
+  public async loadScheduleClassesToReport(reportId: string) {
+    const report = await this.prismaService.report.findFirst({
+      where: { id: reportId },
+    });
+    const { createdBy, startDate, endDate } = report;
+    const classes = await this.getScheduleClassesListByTeacherId(
+      createdBy,
+      true,
+    );
+    const listWithDates = [];
+
+    classes.forEach((sch) => {
+      const { rRule, exDate } = sch;
+      if (rRule) {
+        const rRuleSet = new RRuleSet();
+        rRuleSet.rrule(rrulestr(rRule));
+
+        if (exDate) {
+          rRuleSet.exdate(moment.utc(new Date(exDate)).toDate());
+        }
+
+        const dates = rRuleSet.between(startDate, endDate, true);
+
+        dates.forEach((date) => {
+          listWithDates.push({ date, ...sch });
+        });
+      } else {
+        listWithDates.push(sch);
+      }
+    });
+
+    const groupedBySubjects = _.groupBy(listWithDates, "subject.id");
+
+    const load = [];
+
+    Object.keys(groupedBySubjects).forEach((key) => {
+      const practiceClass = groupedBySubjects[key].filter(
+        (item) => item.type === ClassType.PRACTICE_CLASS,
+      ).length;
+      const labCount = groupedBySubjects[key].filter(
+        (item) => item.type === ClassType.LAB,
+      ).length;
+      const lectureCount = groupedBySubjects[key].filter(
+        (item) => item.type === ClassType.LECTION,
+      ).length;
+
+      load.push({
+        subjectName: groupedBySubjects[key][0].subject.shortName,
+        [ClassType.PRACTICE_CLASS]: practiceClass,
+        [ClassType.LECTION]: lectureCount,
+        [ClassType.LAB]: labCount,
+      });
+    });
+
+    return {
+      list: listWithDates.sort((a, b) => a.date - b.date),
+      load,
+      total: listWithDates.length,
+    };
   }
 }

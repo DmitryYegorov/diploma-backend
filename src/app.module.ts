@@ -8,6 +8,9 @@ import { SubjectModule } from "./subject/subject.module";
 import { RoomModule } from "./room/room.module";
 import { GroupsModule } from "./groups/groups.module";
 import { DocumentsModule } from "./documents/documents.module";
+import { StudyLoadModule } from './study-load/study-load.module';
+import { ReportModule } from './report/report.module';
+import { SemesterModule } from './semester/semester.module';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { DocumentsModule } from "./documents/documents.module";
     RoomModule,
     GroupsModule,
     DocumentsModule,
+    StudyLoadModule,
+    ReportModule,
+    SemesterModule,
   ],
   controllers: [],
   providers: [],

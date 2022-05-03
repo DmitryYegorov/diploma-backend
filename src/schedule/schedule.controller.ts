@@ -35,16 +35,14 @@ export class ScheduleController {
     return this.scheduleService.createScheduleClasses(reqData);
   }
 
-  @Get()
+  @Get("/semester/:semesterId")
   @UseGuards(JwtAuthGuard)
-  public async getScheduleClassesForCurrentSemesterByTeacher(
-    @Param() params,
-    @Request() req,
-  ) {
-    const { teacher } = params;
+  public async getScheduleClassesBySemesterId(@Param() params, @Request() req) {
+    const { semesterId } = params;
     const userId = req.user.id;
-    return this.scheduleService.getScheduleClassesByTeacherForCurrentSem(
-      teacher || userId,
+    return this.scheduleService.getScheduleClassesBySemesterId(
+      userId,
+      semesterId,
     );
   }
 
@@ -57,11 +55,6 @@ export class ScheduleController {
   @Get("/time")
   public async getListOfTimesClasses() {
     return this.scheduleService.getListOfTimesClasses();
-  }
-
-  @Get("/semester/current")
-  public async getCurrentSemester() {
-    return this.scheduleService.getCurrentSemester();
   }
 
   @Get("/calendar/my")
@@ -112,5 +105,12 @@ export class ScheduleController {
       startDate,
       endDate,
     });
+  }
+
+  @Get("/report/:reportId")
+  @UseGuards(JwtAuthGuard)
+  public async getClassesByPeriod(@Request() req, @Param() param) {
+    const { reportId } = param;
+    return this.scheduleService.loadScheduleClassesToReport(reportId);
   }
 }

@@ -4,6 +4,7 @@ import * as moment from "moment";
 import { RRule, RRuleSet } from "rrule";
 import { WeekDayMapToRrule, WeekDaysMapToString } from "../../common/maps";
 import { ScheduleClassUpdate } from "@prisma/client";
+import { createRRuleForScheduleClass } from "../../common/helpers";
 
 export function formatScheduleClassesList(classes: Array<any>) {
   const mappedList = classes.map((item) => {
@@ -149,19 +150,22 @@ export function mapScheduleClassUpdateToEvent(scheduleClassUpdate) {
     return {
       id: scheduleClass.id,
       subject: {
+        id: scheduleClass.subject.id,
         name: scheduleClass.subject.name,
         shortName: scheduleClass.subject.shortName,
       },
       title: `${mapClassType[scheduleClass.type]} ${
         scheduleClass.subject.name
       }`,
-      type: type,
+      type: scheduleClass.type,
+      updateType: type,
       teacher: `${teacher.firstName} ${teacher.middleName} ${teacher.lastName}`,
       teacherId: teacher.id,
       room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
       startDate,
       endDate,
       rRule: null,
+      date: classDate,
     };
   } else if (type === ScheduleClassUpdateType.RESCHEDULED) {
     const startDate = new Date(
@@ -183,6 +187,7 @@ export function mapScheduleClassUpdateToEvent(scheduleClassUpdate) {
     return {
       id: scheduleClass.id,
       subject: {
+        id: scheduleClass.subject.id,
         name: scheduleClass.subject.name,
         shortName: scheduleClass.subject.shortName,
       },
@@ -190,70 +195,42 @@ export function mapScheduleClassUpdateToEvent(scheduleClassUpdate) {
         scheduleClass.subject.name
       }`,
       type: scheduleClass.type,
+      updateType: type,
       teacher: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName} ${scheduleClass.teacher.lastName}`,
       teacherId: scheduleClass.teacher.id,
       room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
       startDate,
       endDate,
       rRule: null,
+      date: rescheduleDate,
     };
   }
 }
 
-export function mapScheduleClassToEvent(scheduleClass) {
-  const { weekDay, week, semester, scheduleTime, ScheduleClassUpdate } =
-    scheduleClass;
+export function mapScheduleClassToEvent(scheduleClass, toReport = false) {
+  const { ScheduleClassUpdate } = scheduleClass;
 
-  let startDate;
+  const { rRule, endTime, startTime } =
+    createRRuleForScheduleClass(scheduleClass);
 
-  if (week === Week.WEEKLY || week === Week.FIRST) {
-    startDate = semester.startDate;
-  } else if (week === Week.SECOND) {
-    startDate = moment(semester.startDate)
-      .add(1, "week")
-      .startOf("isoWeek")
-      .add(1, "d")
-      .toDate();
-  }
-
-  const startTime = new Date(
-    startDate.getFullYear(),
-    startDate.getMonth(),
-    startDate.getDate(),
-    scheduleTime.startHours,
-    scheduleTime.startMinute,
-    0,
-  );
-
-  const endTime = new Date(
-    startDate.getFullYear(),
-    startDate.getMonth(),
-    startDate.getDate(),
-    scheduleTime.endHours,
-    scheduleTime.endMinute,
-    0,
-  );
-
-  const rRule = new RRule({
-    freq: RRule.WEEKLY,
-    interval: week !== Week.WEEKLY ? 2 : 1,
-    byweekday: WeekDayMapToRrule[weekDay],
-    dtstart: startDate,
-    until: semester.endDate,
-  }).toString();
+  const rRuleSet = new RRuleSet();
+  rRuleSet.rrule(rRule);
 
   const exDate = ScheduleClassUpdate.map((update) =>
     update.type === ScheduleClassUpdateType.SWAP &&
     update.teacherId === scheduleClass.teacher.id
       ? null
       : update.classDate,
-  )
-    .filter((exd) => exd !== null)
-    .join(",");
+  ).filter((exd) => exd !== null);
+
+  if (toReport) {
+    exDate.forEach((exd) => rRuleSet.exdate(exd));
+  }
 
   return {
     id: scheduleClass.id,
     subject: {
+      id: scheduleClass.subject.id,
       name: scheduleClass.subject.name,
       shortName: scheduleClass.subject.shortName,
     },
@@ -264,8 +241,8 @@ export function mapScheduleClassToEvent(scheduleClass) {
     room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
     startDate: startTime,
     endDate: endTime,
-    rRule: rRule,
-    exDate,
+    rRule: rRuleSet.toString(),
+    exDate: exDate.join(","),
   };
 }
 

@@ -1,4 +1,4 @@
-import { WeekDay } from "../enum";
+import { ClassType, WeekDay } from "../enum";
 import RRule from "rrule";
 
 export const WeekDayMapToRrule = {
@@ -19,4 +19,10 @@ export const WeekDaysMapToString = {
   [WeekDay.FRIDAY]: "Пятница",
   [WeekDay.SATURDAY]: "Суббота",
   [WeekDay.SUNDAY]: "Воскресенье",
+};
+
+export const ClassTypeMap = {
+  [ClassType.LAB]: "ЛР",
+  [ClassType.PRACTICE_CLASS]: "ПЗ",
+  [ClassType.LECTION]: "ЛК",
 };
