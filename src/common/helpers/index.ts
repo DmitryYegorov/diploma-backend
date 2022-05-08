@@ -1,6 +1,6 @@
 import { Week, WeekDay } from "../enum";
 import * as moment from "moment";
-import { RRule } from "rrule";
+import { RRule, RRuleSet } from "rrule";
 import { WeekDayMapToRrule } from "../maps";
 
 type ScheduleClassType = {
@@ -69,3 +69,14 @@ export function createRRuleForScheduleClass(scheduleClass: ScheduleClassType) {
 
   return { rRule, startTime, endTime };
 }
+
+export const getRRuleSetWithExDates = (exDate) => {
+  const rruleSet = new RRuleSet();
+  if (exDate) {
+    exDate.split(",").map((date: string) => {
+      const currentExDate = moment(date).toDate();
+      rruleSet.exdate(moment.utc(currentExDate).toDate());
+    });
+  }
+  return rruleSet;
+};

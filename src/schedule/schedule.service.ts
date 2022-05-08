@@ -4,16 +4,51 @@ import { PrismaService } from "../prisma/prisma.service";
 import * as _ from "lodash";
 import { ClassType, ScheduleClassUpdateType, Week } from "../common/enum";
 import {
+  clearTimeFromDateObject,
   formatScheduleClassesList,
   formatScheduleClassesListForDepartment,
+  mapScheduleClassReschedule,
+  mapScheduleClassSwap,
   mapScheduleClassToEvent,
   mapScheduleClassUpdateAsLogItem,
-  mapScheduleClassUpdateToEvent,
+  mapScheduleTimeToDate,
 } from "./formatters";
 import { UpdateScheduleClassDto } from "./dto/update-schedule-class.dto";
-import { GetClassesByPeriodDto } from "./dto/get-classes-by-period.dto";
-import { RRule, RRuleSet, rrulestr } from "rrule";
-import { createRRuleForScheduleClass } from "../common/helpers";
+import { RRuleSet, rrulestr } from "rrule";
+import { getRRuleSetWithExDates } from "../common/helpers";
+
+const { CLASS_DURATION } = process.env;
+
+const updatedSelect = {
+  scheduleClass: {
+    select: {
+      id: true,
+      subject: {
+        select: {
+          id: true,
+          name: true,
+          shortName: true,
+        },
+      },
+      teacher: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          middleName: true,
+        },
+      },
+      room: true,
+      scheduleTime: true,
+      semester: true,
+      type: true,
+    },
+  },
+  classDate: true,
+  teacher: true,
+  type: true,
+  rescheduleDate: true,
+};
 
 @Injectable()
 export class ScheduleService {
@@ -228,37 +263,6 @@ export class ScheduleService {
     teacherId: string,
     toReport = false,
   ): Promise<Array<any>> {
-    const updatedSelect = {
-      scheduleClass: {
-        select: {
-          id: true,
-          subject: {
-            select: {
-              id: true,
-              name: true,
-              shortName: true,
-            },
-          },
-          teacher: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              middleName: true,
-            },
-          },
-          room: true,
-          scheduleTime: true,
-          semester: true,
-          type: true,
-        },
-      },
-      classDate: true,
-      teacher: true,
-      type: true,
-      rescheduleDate: true,
-    };
-
     const list = await this.prismaService.scheduleClasses.findMany({
       where: { teacherId },
       include: {
@@ -284,7 +288,7 @@ export class ScheduleService {
       },
     });
 
-    const [swaps, other] = await Promise.all([
+    const [swaps, reschedule] = await Promise.all([
       this.prismaService.scheduleClassUpdate.findMany({
         where: { teacherId, type: ScheduleClassUpdateType.SWAP },
         select: updatedSelect,
@@ -292,22 +296,18 @@ export class ScheduleService {
       this.prismaService.scheduleClassUpdate.findMany({
         where: {
           createdBy: teacherId,
-          type: { not: ScheduleClassUpdateType.SWAP },
+          type: ScheduleClassUpdateType.RESCHEDULED,
         },
         select: updatedSelect,
       }),
     ]);
 
-    const updated = [...swaps, ...other].filter(
-      (u) => u.type !== ScheduleClassUpdateType.CANCEL,
-    );
-
-    return [
-      ...list.map((sc) => mapScheduleClassToEvent(sc, toReport)),
-      ...(updated.length
-        ? updated.map((u) => mapScheduleClassUpdateToEvent(u))
-        : []),
+    const updated = [
+      ...swaps.map((swap) => mapScheduleClassSwap(swap, toReport)),
+      ...reschedule.map((r) => mapScheduleClassReschedule(r)),
     ];
+
+    return [...list.map((sc) => mapScheduleClassToEvent(sc)), ...updated];
   }
 
   public async swapTeacherOnScheduleClass(
@@ -346,14 +346,29 @@ export class ScheduleService {
   public async updateScheduleClass(
     data: UpdateScheduleClassDto & { createdBy: string },
   ) {
-    const {
-      scheduleClassId,
-      type,
-      reason,
-      rescheduleDate,
-      classDate,
-      createdBy,
-    } = data;
+    const { scheduleClassId, type, reason, createdBy } = data;
+
+    const { scheduleTime } = await this.prismaService.scheduleClasses.findFirst(
+      {
+        select: {
+          scheduleTime: true,
+        },
+        where: { id: scheduleClassId },
+      },
+    );
+
+    const rescheduleDate =
+      type === ScheduleClassUpdateType.RESCHEDULED
+        ? mapScheduleTimeToDate(
+            moment(data.rescheduleDate).toDate(),
+            scheduleTime,
+          ).startTime
+        : null;
+
+    const classDate = mapScheduleTimeToDate(
+      moment(data.classDate).toDate(),
+      scheduleTime,
+    ).startTime;
 
     return this.prismaService.scheduleClassUpdate.create({
       data: {
@@ -418,53 +433,139 @@ export class ScheduleService {
     return updates.map((u) => mapScheduleClassUpdateAsLogItem(u));
   }
 
+  private async getSwapsByTeacherId(
+    teacherId: string,
+    startDate: Date | string,
+    endDate: Date | string,
+  ) {
+    const swaps = await this.prismaService.scheduleClassUpdate.findMany({
+      select: updatedSelect,
+      where: {
+        teacherId,
+        type: ScheduleClassUpdateType.SWAP,
+        classDate: {
+          lte: endDate,
+          gte: startDate,
+        },
+      },
+    });
+
+    return swaps.map((s) => mapScheduleClassSwap(s));
+  }
+
+  private async getReschedulesClassesByTeacherId(
+    teacherId: string,
+    startDate: Date | string,
+    endDate: Date | string,
+  ) {
+    const reschedules = await this.prismaService.scheduleClassUpdate.findMany({
+      select: updatedSelect,
+      where: {
+        createdBy: teacherId,
+        type: ScheduleClassUpdateType.RESCHEDULED,
+        rescheduleDate: {
+          lte: endDate,
+          gte: startDate,
+        },
+      },
+    });
+
+    return reschedules.map((r) => mapScheduleClassReschedule(r));
+  }
+
+  private async getClassesByTeacherId(teacherId: string) {
+    const classes = await this.prismaService.scheduleClasses.findMany({
+      where: { teacherId },
+      include: {
+        ScheduleClassUpdate: true,
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            shortName: true,
+          },
+        },
+        teacher: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            middleName: true,
+          },
+        },
+        room: true,
+        scheduleTime: true,
+        semester: true,
+      },
+    });
+    return classes.map((c) =>
+      mapScheduleClassToEvent(c, { includeScheduleTime: true }),
+    );
+  }
+
   public async loadScheduleClassesToReport(reportId: string) {
     const report = await this.prismaService.report.findFirst({
       where: { id: reportId },
     });
     const { createdBy, startDate, endDate } = report;
-    const classes = await this.getScheduleClassesListByTeacherId(
-      createdBy,
-      true,
-    );
+    const [swaps, reschedules, classes] = await Promise.all([
+      this.getSwapsByTeacherId(createdBy, startDate, endDate),
+      this.getReschedulesClassesByTeacherId(createdBy, startDate, endDate),
+      this.getClassesByTeacherId(createdBy),
+    ]);
     const listWithDates = [];
 
     classes.forEach((sch) => {
-      const { rRule, exDate } = sch;
-      if (rRule) {
-        const rRuleSet = new RRuleSet();
-        rRuleSet.rrule(rrulestr(rRule));
+      const rRuleSet = new RRuleSet();
+      const rRule = rrulestr(sch.rRule);
+      rRuleSet.rrule(rRule);
+      const exDate: Array<string> = sch.exDate
+        ? sch.exDate.split(",").map((exd) => moment(exd).format("DD-MM-yyyy"))
+        : [];
 
-        if (exDate) {
-          rRuleSet.exdate(moment.utc(new Date(exDate)).toDate());
-        }
+      let dates = rRuleSet
+        .between(moment(startDate).toDate(), moment(endDate).toDate(), true)
+        .map((date) => moment.utc(date).format("DD-MM-yyyy"));
 
-        const dates = rRuleSet.between(startDate, endDate, true);
-
-        dates.forEach((date) => {
-          listWithDates.push({ date, ...sch });
-        });
-      } else {
-        listWithDates.push(sch);
+      if (exDate?.length && dates.length) {
+        dates = dates.filter((date) => !exDate.includes(date));
       }
+
+      if (!dates.length) return;
+
+      dates.forEach((date) => {
+        listWithDates.push({
+          date,
+          ...sch,
+        });
+      });
     });
+
+    [...swaps, ...reschedules].forEach((sch) =>
+      listWithDates.push({
+        date: moment(sch.startDate).format("DD-MM-yyyy"),
+        ...sch,
+      }),
+    );
 
     const groupedBySubjects = _.groupBy(listWithDates, "subject.id");
 
     const load = [];
 
     Object.keys(groupedBySubjects).forEach((key) => {
-      const practiceClass = groupedBySubjects[key].filter(
-        (item) => item.type === ClassType.PRACTICE_CLASS,
-      ).length;
-      const labCount = groupedBySubjects[key].filter(
-        (item) => item.type === ClassType.LAB,
-      ).length;
-      const lectureCount = groupedBySubjects[key].filter(
-        (item) => item.type === ClassType.LECTION,
-      ).length;
+      const practiceClass =
+        groupedBySubjects[key].filter(
+          (item) => item.type === ClassType.PRACTICE_CLASS,
+        ).length * parseInt(CLASS_DURATION);
+      const labCount =
+        groupedBySubjects[key].filter((item) => item.type === ClassType.LAB)
+          .length * parseInt(CLASS_DURATION);
+      const lectureCount =
+        groupedBySubjects[key].filter((item) => item.type === ClassType.LECTION)
+          .length * parseInt(CLASS_DURATION);
 
       load.push({
+        subjectId: groupedBySubjects[key][0].subject.id,
         subjectName: groupedBySubjects[key][0].subject.shortName,
         [ClassType.PRACTICE_CLASS]: practiceClass,
         [ClassType.LECTION]: lectureCount,
@@ -473,7 +574,7 @@ export class ScheduleService {
     });
 
     return {
-      list: listWithDates.sort((a, b) => a.date - b.date),
+      list: listWithDates.sort((a, b) => (b.date >= a.date ? -1 : 1)),
       load,
       total: listWithDates.length,
     };
