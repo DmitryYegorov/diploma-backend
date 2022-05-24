@@ -1,6 +1,7 @@
 export enum UserRole {
   USER = "USER",
   ADMIN = "ADMIN",
+  MANAGER = "MANAGER",
 }
 
 export enum ScheduleClassUpdateType {
@@ -10,9 +11,6 @@ export enum ScheduleClassUpdateType {
 }
 
 export enum EventType {
-  LECTION = "LECTION",
-  PRACTICE_CLASS = "PRACTICE_CLASS",
-  LAB = "LAB",
   CONSULTATION = "CONSULTATION",
   COURSE_WORK = "COURSE_WORK",
   EXAM = "EXAM",
@@ -44,4 +42,10 @@ export enum WeekDay {
   THURSDAY,
   FRIDAY,
   SATURDAY,
+}
+
+export enum ReportState {
+  DRAFT = "DRAFT",
+  SENT = "SENT",
+  APPROVED = "APPROVED",
 }

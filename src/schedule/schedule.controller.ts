@@ -14,6 +14,8 @@ import { ScheduleService } from "./schedule.service";
 import { JwtAuthGuard } from "../auth/guards/auth.guard";
 import { CreateClassDto } from "./dto/create-class.dto";
 import { UpdateScheduleClassDto } from "./dto/update-schedule-class.dto";
+import * as Type from "./types";
+import { GetScheduleClassesOptionsDto } from "./dto/get-schedule-classes-options.dto";
 
 @Controller("schedule")
 export class ScheduleController {
@@ -33,6 +35,26 @@ export class ScheduleController {
     };
 
     return this.scheduleService.createScheduleClasses(reqData);
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  public async getScheduleClass(
+    @Request() req,
+    @Query() query: GetScheduleClassesOptionsDto,
+  ) {
+    const teacherId = req.user.id;
+    return this.scheduleService.getScheduleClassByOptions({
+      ...query,
+      teacherId,
+    });
+  }
+
+  @Get("/class/:id")
+  @UseGuards(JwtAuthGuard)
+  public async getClassById(@Request() req, @Param() param) {
+    const { id } = param;
+    return this.scheduleService.getClassById(id);
   }
 
   @Get("/semester/:semesterId")
@@ -107,10 +129,17 @@ export class ScheduleController {
     });
   }
 
-  @Get("/report/:reportId")
+  @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  public async getClassesByPeriod(@Request() req, @Param() param) {
-    const { reportId } = param;
-    return this.scheduleService.loadScheduleClassesToReport(reportId);
+  public async deleteScheduleClass(@Request() req, @Param() param) {
+    const { id } = param;
+    return this.scheduleService.removeRowByScheduleClassId(id);
+  }
+
+  @Put("/class/:id")
+  @UseGuards(JwtAuthGuard)
+  public async updateDataScheduleClass(@Param() param, @Body() body) {
+    const { id } = param;
+    return this.scheduleService.updateDataScheduleClass(id, body);
   }
 }

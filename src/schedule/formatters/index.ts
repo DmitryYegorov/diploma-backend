@@ -1,10 +1,17 @@
 import * as _ from "lodash";
-import { ClassType, ScheduleClassUpdateType, Week } from "../../common/enum";
+import {
+  ClassType,
+  EventType,
+  ScheduleClassUpdateType,
+  Week,
+} from "../../common/enum";
 import * as moment from "moment";
 import { RRule, RRuleSet } from "rrule";
 import { WeekDayMapToRrule, WeekDaysMapToString } from "../../common/maps";
 import { ScheduleClassUpdate } from "@prisma/client";
 import { createRRuleForScheduleClass } from "../../common/helpers";
+
+const { CLASS_DURATION } = process.env;
 
 export function formatScheduleClassesList(classes: Array<any>) {
   const mappedList = classes.map((item) => {
@@ -42,8 +49,10 @@ export function formatScheduleClassesList(classes: Array<any>) {
       groups: item.groups,
       subject: item.subject,
       week: item.week,
-      classType: item.type,
+      type: item.type,
       room: `${item.room.room} - ${item.room.campus}`,
+      startDate: item.startDate,
+      endDate: item.endDate,
     };
   });
 
@@ -127,7 +136,7 @@ export function formatScheduleClassesListForDepartment(scheduleClasses) {
 }
 
 export function mapScheduleClassSwap(swap, toReport = false) {
-  const { scheduleClass, type, teacher, classDate } = swap;
+  const { scheduleClass, type, teacher, classDate, id } = swap;
   const startDate = new Date(
     classDate.getFullYear(),
     classDate.getMonth(),
@@ -146,7 +155,7 @@ export function mapScheduleClassSwap(swap, toReport = false) {
   );
 
   return {
-    id: scheduleClass.id,
+    id,
     subject: {
       id: scheduleClass.subject.id,
       name: scheduleClass.subject.name,
@@ -166,7 +175,7 @@ export function mapScheduleClassSwap(swap, toReport = false) {
 }
 
 export function mapScheduleClassReschedule(reschedule) {
-  const { scheduleClass, type, rescheduleDate } = reschedule;
+  const { scheduleClass, type, rescheduleDate, id } = reschedule;
 
   const { startTime, endTime } = mapScheduleTimeToDate(
     rescheduleDate,
@@ -174,7 +183,7 @@ export function mapScheduleClassReschedule(reschedule) {
   );
 
   return {
-    id: scheduleClass.id,
+    id,
     subject: {
       id: scheduleClass.subject.id,
       name: scheduleClass.subject.name,
@@ -282,4 +291,14 @@ export function mapScheduleTimeToDate(date, scheduleTime) {
 
 export function clearTimeFromDateObject(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+}
+
+export function mapScheduleTimeToString(scheduleTime) {
+  const { startTime, endTime } = mapScheduleTimeToDate(
+    new Date(),
+    scheduleTime,
+  );
+  return `${moment(startTime).format("HH:mm")} - ${moment(endTime).format(
+    "HH:mm",
+  )}`;
 }

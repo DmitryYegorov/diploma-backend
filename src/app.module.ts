@@ -8,9 +8,10 @@ import { SubjectModule } from "./subject/subject.module";
 import { RoomModule } from "./room/room.module";
 import { GroupsModule } from "./groups/groups.module";
 import { DocumentsModule } from "./documents/documents.module";
-import { StudyLoadModule } from './study-load/study-load.module';
-import { ReportModule } from './report/report.module';
-import { SemesterModule } from './semester/semester.module';
+import { ReportModule } from "./report/report.module";
+import { SemesterModule } from "./semester/semester.module";
+import { FacultyModule } from "./faculty/faculty.module";
+import { OtherLoadModule } from './other-load/other-load.module';
 
 @Module({
   imports: [
@@ -23,9 +24,10 @@ import { SemesterModule } from './semester/semester.module';
     RoomModule,
     GroupsModule,
     DocumentsModule,
-    StudyLoadModule,
     ReportModule,
     SemesterModule,
+    FacultyModule,
+    OtherLoadModule,
   ],
   controllers: [],
   providers: [],

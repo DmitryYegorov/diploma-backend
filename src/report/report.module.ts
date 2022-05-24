@@ -4,8 +4,8 @@ import { ReportController } from "./report.controller";
 import { JwtModule } from "@nestjs/jwt";
 import { PrismaModule } from "../prisma/prisma.module";
 import { PrismaService } from "../prisma/prisma.service";
-import { ScheduleModule } from "../schedule/schedule.module";
 import { ScheduleService } from "../schedule/schedule.service";
+import { ScheduleModule } from "../schedule/schedule.module";
 
 @Module({
   providers: [PrismaService, ReportService, ScheduleService],

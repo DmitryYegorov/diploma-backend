@@ -28,9 +28,6 @@ enum RoomType {
 }
 
 enum EventType {
-  LECTION
-  PRACTICE_CLASS
-  LAB
   CONSULTATION
   COURSE_WORK
   EXAM
@@ -40,6 +37,21 @@ enum EventType {
   PRACTICE
   DIPLOMA_DESIGN
   STATE_EXAMINATION_BOARD
+}
+
+enum LoadType {
+  CONSULTATION
+  COURSE_WORK
+  EXAM
+  CREDIT
+  POSTGRADUATE
+  TESTING
+  PRACTICE
+  DIPLOMA_DESIGN
+  STATE_EXAMINATION_BOARD
+  LAB
+  LECTION
+  PRACTICE_CLASS
 }
 
 enum Week {
@@ -77,9 +89,9 @@ model User {
 
   ScheduleClasses     ScheduleClasses[]     @relation("teaching")
   Subject             Subject[]
-  StudyLoad           StudyLoad[]
   ScheduleClassUpdate ScheduleClassUpdate[]
   Report              Report[]
+  OtherLoad           OtherLoad[]
   @@map("user")
 }
 
@@ -94,7 +106,8 @@ model Subject {
   deletedBy String?   @db.Uuid
 
   ScheduleClasses ScheduleClasses[] @relation("SubjectOnScheduleClasses")
-  StudyLoad       StudyLoad[]
+  OtherLoad       OtherLoad[]
+  ReportLoad      ReportLoad[]
   @@map("subject")
 }
 
@@ -141,7 +154,8 @@ model Faculty {
   name      String @db.VarChar()
   shortName String @db.VarChar()
 
-  Group Group[] @relation("FacultyOnGroup")
+  Group     Group[]     @relation("FacultyOnGroup")
+  OtherLoad OtherLoad[]
   @@map("faculty")
 }
 
@@ -205,9 +219,9 @@ model AcademicYear {
   @@map("academic-year")
 }
 
-model StudyLoad {
+model ReportLoad {
   id        String    @id @default(value: uuid()) @db.Uuid
-  type      EventType
+  type      LoadType?
   subject   Subject?  @relation(fields: [subjectId], references: [id])
   subjectId String?   @db.Uuid
   report    Report    @relation(fields: [reportId], references: [id])
@@ -215,18 +229,34 @@ model StudyLoad {
   duration  Float
   date      DateTime
   createdAt DateTime? @default(value: now())
-  teacher   User      @relation(fields: [teacherId], references: [id])
-  teacherId String    @db.Uuid
 
-  @@map("study-load")
+  @@map("report-load")
+}
+
+model OtherLoad {
+  id            String    @id @default(value: uuid()) @db.Uuid
+  type          EventType
+  groupsCount   Int?
+  studentsCount Int?
+  faculty       Faculty   @relation(fields: [facultyId], references: [id])
+  facultyId     String    @db.Uuid
+  subject       Subject?  @relation(fields: [subjectId], references: [id])
+  subjectId     String?   @db.Uuid
+  duration      Float
+  date          DateTime
+  createdAt     DateTime? @default(value: now())
+  created       User      @relation(fields: [createdBy], references: [id])
+  createdBy     String    @db.Uuid
+
+  @@map("other-load")
 }
 
 model ScheduleClassUpdate {
   id              String                  @id @default(value: uuid()) @db.Uuid
-  scheduleClass   ScheduleClasses         @relation(fields: [scheduleClassId], references: [id])
+  scheduleClass   ScheduleClasses         @relation(fields: [scheduleClassId], references: [id], onDelete: Cascade)
   scheduleClassId String                  @db.Uuid
   type            ScheduleClassUpdateType
-  teacher         User?                   @relation(fields: [teacherId], references: [id])
+  teacher         User?                   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   teacherId       String?                 @db.Uuid
   classDate       DateTime
   rescheduleDate  DateTime?
@@ -238,15 +268,30 @@ model ScheduleClassUpdate {
 }
 
 model Report {
-  id        String       @id @default(value: uuid()) @db.Uuid
-  name      String       @db.VarChar()
-  state     ReportState? @default(DRAFT)
-  startDate DateTime
-  endDate   DateTime
-  createdAt DateTime?    @default(value: now())
-  creater   User         @relation(fields: [createdBy], references: [id])
-  createdBy String       @db.Uuid
+  id         String       @id @default(value: uuid()) @db.Uuid
+  name       String       @db.VarChar()
+  state      ReportState? @default(DRAFT)
+  startDate  DateTime
+  endDate    DateTime
+  createdAt  DateTime?    @default(value: now())
+  creater    User         @relation(fields: [createdBy], references: [id])
+  createdBy  String       @db.Uuid
+  sentAt     DateTime?
+  approvedAt DateTime?
+  adminNote  String?
 
-  StudyLoad StudyLoad[]
+  ReportLoad       ReportLoad[]
+  CalculatedReport CalculatedReport[]
   @@map("report")
+}
+
+model CalculatedReport {
+  id        String    @id @default(value: uuid()) @db.Uuid
+  report    Report    @relation(fields: [reportId], references: [id])
+  reportId  String    @db.Uuid
+  data      Json
+  createdAt DateTime? @default(value: now())
+  updatedAt DateTime?
+
+  @@map("calculated-report")
 }
