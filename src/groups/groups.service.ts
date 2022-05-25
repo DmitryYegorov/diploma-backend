@@ -11,7 +11,11 @@ export class GroupsService {
         id: true,
         group: true,
         courese: true,
-        faculty: true,
+        speciality: {
+          select: {
+            faculty: true,
+          },
+        },
         subGroup: true,
       },
     });
@@ -21,9 +25,9 @@ export class GroupsService {
       group: item.group,
       subGroup: item.subGroup,
       course: item.courese,
-      facultyId: item.faculty.id,
-      facultyName: item.faculty.shortName,
-      label: `${item.courese}к. ${item.group}-${item.subGroup}.гр. ${item.faculty.shortName}`,
+      facultyId: item.speciality.faculty.id,
+      facultyName: item.speciality.faculty.shortName,
+      label: `${item.courese}к. ${item.group}-${item.subGroup}.гр. ${item.speciality.faculty.shortName}`,
     }));
   }
 }

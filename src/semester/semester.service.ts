@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { CreateAcademicYearDto } from "./dto/create-academic-year.dto";
 
 @Injectable()
 export class SemesterService {
@@ -51,5 +52,27 @@ export class SemesterService {
         endDate: semester.academicYear.endDate,
       },
     };
+  }
+
+  public async createNewAcademicYear(data: CreateAcademicYearDto) {
+    const academicYear = await this.prismaService.academicYear.create({
+      data: data.academicYear,
+    });
+    await this.prismaService.semester.createMany({
+      data: data.semesters.map((item) => ({
+        ...item,
+        academicYearId: academicYear.id,
+      })),
+    });
+
+    return academicYear;
+  }
+
+  public async getAcademicYears() {
+    return this.prismaService.academicYear.findMany({
+      orderBy: {
+        startDate: "desc",
+      },
+    });
   }
 }

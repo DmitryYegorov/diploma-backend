@@ -93,6 +93,7 @@ model User {
   Report              Report[]
   OtherLoad           OtherLoad[]
   @@map("user")
+  LoadPlan LoadPlan[]
 }
 
 model Subject {
@@ -109,6 +110,7 @@ model Subject {
   OtherLoad       OtherLoad[]
   ReportLoad      ReportLoad[]
   @@map("subject")
+  LoadPlan LoadPlan[]
 }
 
 model ScheduleClasses {
@@ -154,20 +156,20 @@ model Faculty {
   name      String @db.VarChar()
   shortName String @db.VarChar()
 
-  Group     Group[]     @relation("FacultyOnGroup")
-  OtherLoad OtherLoad[]
+  OtherLoad  OtherLoad[]
+  Speciality Speciality[] @relation("FacultyOnGroup")
   @@map("faculty")
 }
 
 model Group {
-  id         String   @id @default(value: uuid()) @db.Uuid
-  faculty    Faculty  @relation(name: "FacultyOnGroup", fields: [facultyId], references: [id])
-  facultyId  String   @db.Uuid
-  group      Int
-  subGroup   Int
-  courese    Int
-  semester   Semester @relation(fields: [semesterId], references: [id])
-  semesterId String   @db.Uuid
+  id           String     @id @default(value: uuid()) @db.Uuid
+  group        Int
+  subGroup     Int
+  courese      Int
+  semester     Semester   @relation(fields: [semesterId], references: [id])
+  semesterId   String     @db.Uuid
+  speciality   Speciality @relation(fields: [specialityId], references: [id])
+  specialityId String     @db.Uuid
 
   GroupScheduleClass GroupScheduleClass[]
   @@map("group")
@@ -198,7 +200,7 @@ model ScheduleTime {
 model Semester {
   id             String       @id @default(value: uuid()) @db.Uuid
   name           String       @db.VarChar()
-  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   academicYearId String       @db.Uuid
   startDate      DateTime
   endDate        DateTime
@@ -207,6 +209,7 @@ model Semester {
   ScheduleClasses ScheduleClasses[] @relation("SemesterOnScheduleClasees")
   Group           Group[]
   @@map("semester")
+  LoadPlan LoadPlan[]
 }
 
 model AcademicYear {
@@ -294,4 +297,32 @@ model CalculatedReport {
   updatedAt DateTime?
 
   @@map("calculated-report")
+}
+
+model Speciality {
+  id        String  @id @default(value: uuid()) @db.Uuid
+  faculty   Faculty @relation(name: "FacultyOnGroup", fields: [facultyId], references: [id])
+  facultyId String  @db.Uuid
+  name      String  @db.VarChar()
+  shortName String  @db.VarChar()
+
+  Group Group[]
+  @@map("specialty")
+  LoadPlan LoadPlan[]
+}
+
+model LoadPlan {
+  id           String     @id @default(value: uuid()) @db.Uuid
+  speciality   Speciality @relation(fields: [specialityId], references: [id], onDelete: Cascade)
+  specialityId String     @db.Uuid
+  type         LoadType
+  subject      Subject?   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectId    String?    @db.Uuid
+  duration     Float
+  semester     Semester   @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  semesterId   String     @db.Uuid
+  teacher      User       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId    String     @db.Uuid
+
+  @@map("load-plan")
 }

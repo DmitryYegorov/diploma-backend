@@ -177,9 +177,13 @@ export class ScheduleService {
                 courese: true,
                 group: true,
                 subGroup: true,
-                faculty: {
+                speciality: {
                   select: {
-                    shortName: true,
+                    faculty: {
+                      select: {
+                        shortName: true,
+                      },
+                    },
                   },
                 },
               },
@@ -239,7 +243,7 @@ export class ScheduleService {
         scheduleClassId: true,
         group: {
           include: {
-            faculty: true,
+            // faculty: true,
           },
         },
       },

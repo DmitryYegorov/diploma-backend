@@ -12,6 +12,8 @@ import { ReportModule } from "./report/report.module";
 import { SemesterModule } from "./semester/semester.module";
 import { FacultyModule } from "./faculty/faculty.module";
 import { OtherLoadModule } from './other-load/other-load.module';
+import { SpecialityModule } from './speciality/speciality.module';
+import { LoadPlanModule } from './load-plan/load-plan.module';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { OtherLoadModule } from './other-load/other-load.module';
     SemesterModule,
     FacultyModule,
     OtherLoadModule,
+    SpecialityModule,
+    LoadPlanModule,
   ],
   controllers: [],
   providers: [],
