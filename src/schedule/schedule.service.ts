@@ -119,6 +119,7 @@ export class ScheduleService {
     return { classData, groups };
   }
 
+  // for department
   public async getScheduleClassOfDepartment(semesterId: string) {
     const teachers = await this.prismaService.user.findMany({
       select: {
@@ -174,7 +175,7 @@ export class ScheduleService {
           select: {
             group: {
               select: {
-                courese: true,
+                course: true,
                 group: true,
                 subGroup: true,
                 speciality: {
@@ -242,8 +243,14 @@ export class ScheduleService {
       select: {
         scheduleClassId: true,
         group: {
-          include: {
-            // faculty: true,
+          select: {
+            id: true,
+            group: true,
+            subGroup: true,
+            course: true,
+            speciality: {
+              select: { faculty: true },
+            },
           },
         },
       },
@@ -265,7 +272,7 @@ export class ScheduleService {
     ).map((scheduleClassId: string) => ({
       ...groupedScheduleClassesById[scheduleClassId][0],
       groups: groupedGroupsListByScheduleClassId[scheduleClassId].map((g) => ({
-        label: `${g.group.courese} ${g.group.faculty.shortName} ${g.group.group}-${g.group.subGroup}`,
+        label: `${g.group.course} ${g.group.speciality.faculty.shortName} ${g.group.group}-${g.group.subGroup}`,
         id: g.group.id,
       })),
     }));
@@ -547,13 +554,24 @@ export class ScheduleService {
   public async updateDataScheduleClass(id: string, data: any) {
     const { groups } = data;
 
+    console.log({ groups });
+
     if (groups?.length) {
+      const createData: Array<any> = groups.map((g) => ({
+        scheduleClassId: id,
+        groupId: g.id,
+      }));
+
+      console.log({ createData });
+
       await Promise.all([
         this.prismaService.groupScheduleClass.deleteMany({
-          where: { scheduleClassId: id },
+          where: {
+            scheduleClassId: id,
+          },
         }),
         this.prismaService.groupScheduleClass.createMany({
-          data: groups.map((g) => ({ scheduleClassId: id, groupId: g.id })),
+          data: createData,
         }),
       ]);
     }
@@ -572,8 +590,6 @@ export class ScheduleService {
         },
       },
     });
-
-    console.log(scheduleClasses);
 
     if (scheduleClasses.length > 0) {
       throw new HttpException(

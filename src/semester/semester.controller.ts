@@ -21,6 +21,13 @@ export class SemesterController {
     return this.semesterService.getAcademicYears();
   }
 
+  @Get("/academic-year/:id")
+  @UseGuards(JwtAuthGuard)
+  public async getAcademicYearById(@Param() param) {
+    const { id } = param;
+    return this.semesterService.getAcademicYearWithSemestersById(id);
+  }
+
   @Get("/current")
   public async getCurrentSemester() {
     return this.semesterService.getCurrentSemester();

@@ -92,8 +92,8 @@ model User {
   ScheduleClassUpdate ScheduleClassUpdate[]
   Report              Report[]
   OtherLoad           OtherLoad[]
+  LoadPlan            LoadPlan[]
   @@map("user")
-  LoadPlan LoadPlan[]
 }
 
 model Subject {
@@ -109,8 +109,8 @@ model Subject {
   ScheduleClasses ScheduleClasses[] @relation("SubjectOnScheduleClasses")
   OtherLoad       OtherLoad[]
   ReportLoad      ReportLoad[]
+  LoadPlan        LoadPlan[]
   @@map("subject")
-  LoadPlan LoadPlan[]
 }
 
 model ScheduleClasses {
@@ -165,7 +165,7 @@ model Group {
   id           String     @id @default(value: uuid()) @db.Uuid
   group        Int
   subGroup     Int
-  courese      Int
+  course       Int
   semester     Semester   @relation(fields: [semesterId], references: [id])
   semesterId   String     @db.Uuid
   speciality   Speciality @relation(fields: [specialityId], references: [id])
@@ -208,8 +208,8 @@ model Semester {
 
   ScheduleClasses ScheduleClasses[] @relation("SemesterOnScheduleClasees")
   Group           Group[]
+  LoadPlan        LoadPlan[]
   @@map("semester")
-  LoadPlan LoadPlan[]
 }
 
 model AcademicYear {
@@ -306,9 +306,9 @@ model Speciality {
   name      String  @db.VarChar()
   shortName String  @db.VarChar()
 
-  Group Group[]
-  @@map("specialty")
+  Group    Group[]
   LoadPlan LoadPlan[]
+  @@map("specialty")
 }
 
 model LoadPlan {

@@ -116,7 +116,7 @@ export function formatScheduleClassesListForDepartment(scheduleClasses) {
       timeId: scheduleClass.scheduleTime.id,
       teacherId: scheduleClass.teacher.id,
       teacherName: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName[0]}. ${scheduleClass.teacher.lastName[0]}.`,
-      group: `${scheduleClass.GroupScheduleClass[0].group.courese} ${scheduleClass.GroupScheduleClass[0].group.faculty.shortName} ${scheduleClass.GroupScheduleClass[0].group.group}`,
+      group: `${scheduleClass.GroupScheduleClass[0].group.course} ${scheduleClass.GroupScheduleClass[0].group.faculty.shortName} ${scheduleClass.GroupScheduleClass[0].group.group}`,
     };
   });
 

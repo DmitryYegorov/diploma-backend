@@ -75,4 +75,13 @@ export class SemesterService {
       },
     });
   }
+
+  public async getAcademicYearWithSemestersById(id: string) {
+    const [academicYear, semesters] = await Promise.all([
+      this.prismaService.academicYear.findFirst({ where: { id } }),
+      this.prismaService.semester.findMany({ where: { academicYearId: id } }),
+    ]);
+
+    return { academicYear, semesters };
+  }
 }
