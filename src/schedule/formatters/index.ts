@@ -1,9 +1,17 @@
 import * as _ from "lodash";
-import { ClassType, ScheduleClassUpdateType, Week } from "../../common/enum";
+import {
+  ClassType,
+  EventType,
+  ScheduleClassUpdateType,
+  Week,
+} from "../../common/enum";
 import * as moment from "moment";
 import { RRule, RRuleSet } from "rrule";
 import { WeekDayMapToRrule, WeekDaysMapToString } from "../../common/maps";
 import { ScheduleClassUpdate } from "@prisma/client";
+import { createRRuleForScheduleClass } from "../../common/helpers";
+
+const { CLASS_DURATION } = process.env;
 
 export function formatScheduleClassesList(classes: Array<any>) {
   const mappedList = classes.map((item) => {
@@ -41,8 +49,10 @@ export function formatScheduleClassesList(classes: Array<any>) {
       groups: item.groups,
       subject: item.subject,
       week: item.week,
-      classType: item.type,
+      type: item.type,
       room: `${item.room.room} - ${item.room.campus}`,
+      startDate: item.startDate,
+      endDate: item.endDate,
     };
   });
 
@@ -106,7 +116,7 @@ export function formatScheduleClassesListForDepartment(scheduleClasses) {
       timeId: scheduleClass.scheduleTime.id,
       teacherId: scheduleClass.teacher.id,
       teacherName: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName[0]}. ${scheduleClass.teacher.lastName[0]}.`,
-      group: `${scheduleClass.GroupScheduleClass[0].group.courese} ${scheduleClass.GroupScheduleClass[0].group.faculty.shortName} ${scheduleClass.GroupScheduleClass[0].group.group}`,
+      group: `${scheduleClass.GroupScheduleClass[0].group.course} ${scheduleClass.GroupScheduleClass[0].group.faculty.shortName} ${scheduleClass.GroupScheduleClass[0].group.group}`,
     };
   });
 
@@ -125,147 +135,109 @@ export function formatScheduleClassesListForDepartment(scheduleClasses) {
   return groupedByWeekDay;
 }
 
-export function mapScheduleClassUpdateToEvent(scheduleClassUpdate) {
-  const { scheduleClass, type, teacher, classDate, rescheduleDate } =
-    scheduleClassUpdate;
-
-  if (type === ScheduleClassUpdateType.SWAP) {
-    const startDate = new Date(
-      classDate.getFullYear(),
-      classDate.getMonth(),
-      classDate.getDate(),
-      scheduleClass.scheduleTime.startHours,
-      scheduleClass.scheduleTime.startMinute,
-      0,
-    );
-    const endDate = new Date(
-      classDate.getFullYear(),
-      classDate.getMonth(),
-      classDate.getDate(),
-      scheduleClass.scheduleTime.endHours,
-      scheduleClass.scheduleTime.endMinute,
-      0,
-    );
-    return {
-      id: scheduleClass.id,
-      subject: {
-        name: scheduleClass.subject.name,
-        shortName: scheduleClass.subject.shortName,
-      },
-      title: `${mapClassType[scheduleClass.type]} ${
-        scheduleClass.subject.name
-      }`,
-      type: type,
-      teacher: `${teacher.firstName} ${teacher.middleName} ${teacher.lastName}`,
-      teacherId: teacher.id,
-      room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
-      startDate,
-      endDate,
-      rRule: null,
-    };
-  } else if (type === ScheduleClassUpdateType.RESCHEDULED) {
-    const startDate = new Date(
-      rescheduleDate.getFullYear(),
-      rescheduleDate.getMonth(),
-      rescheduleDate.getDate(),
-      scheduleClass.scheduleTime.startHours,
-      scheduleClass.scheduleTime.startMinute,
-      0,
-    );
-    const endDate = new Date(
-      rescheduleDate.getFullYear(),
-      rescheduleDate.getMonth(),
-      rescheduleDate.getDate(),
-      scheduleClass.scheduleTime.endHours,
-      scheduleClass.scheduleTime.endMinute,
-      0,
-    );
-    return {
-      id: scheduleClass.id,
-      subject: {
-        name: scheduleClass.subject.name,
-        shortName: scheduleClass.subject.shortName,
-      },
-      title: `${mapClassType[scheduleClass.type]} ${
-        scheduleClass.subject.name
-      }`,
-      type: scheduleClass.type,
-      teacher: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName} ${scheduleClass.teacher.lastName}`,
-      teacherId: scheduleClass.teacher.id,
-      room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
-      startDate,
-      endDate,
-      rRule: null,
-    };
-  }
-}
-
-export function mapScheduleClassToEvent(scheduleClass) {
-  const { weekDay, week, semester, scheduleTime, ScheduleClassUpdate } =
-    scheduleClass;
-
-  let startDate;
-
-  if (week === Week.WEEKLY || week === Week.FIRST) {
-    startDate = semester.startDate;
-  } else if (week === Week.SECOND) {
-    startDate = moment(semester.startDate)
-      .add(1, "week")
-      .startOf("isoWeek")
-      .add(1, "d")
-      .toDate();
-  }
-
-  const startTime = new Date(
-    startDate.getFullYear(),
-    startDate.getMonth(),
-    startDate.getDate(),
-    scheduleTime.startHours,
-    scheduleTime.startMinute,
+export function mapScheduleClassSwap(swap, toReport = false) {
+  const { scheduleClass, type, teacher, classDate, id } = swap;
+  const startDate = new Date(
+    classDate.getFullYear(),
+    classDate.getMonth(),
+    classDate.getDate(),
+    scheduleClass.scheduleTime.startHours,
+    scheduleClass.scheduleTime.startMinute,
     0,
   );
-
-  const endTime = new Date(
-    startDate.getFullYear(),
-    startDate.getMonth(),
-    startDate.getDate(),
-    scheduleTime.endHours,
-    scheduleTime.endMinute,
+  const endDate = new Date(
+    classDate.getFullYear(),
+    classDate.getMonth(),
+    classDate.getDate(),
+    scheduleClass.scheduleTime.endHours,
+    scheduleClass.scheduleTime.endMinute,
     0,
   );
-
-  const rRule = new RRule({
-    freq: RRule.WEEKLY,
-    interval: week !== Week.WEEKLY ? 2 : 1,
-    byweekday: WeekDayMapToRrule[weekDay],
-    dtstart: startDate,
-    until: semester.endDate,
-  }).toString();
-
-  const exDate = ScheduleClassUpdate.map((update) =>
-    update.type === ScheduleClassUpdateType.SWAP &&
-    update.teacherId === scheduleClass.teacher.id
-      ? null
-      : update.classDate,
-  )
-    .filter((exd) => exd !== null)
-    .join(",");
 
   return {
-    id: scheduleClass.id,
+    id,
     subject: {
+      id: scheduleClass.subject.id,
       name: scheduleClass.subject.name,
       shortName: scheduleClass.subject.shortName,
     },
     title: `${mapClassType[scheduleClass.type]} ${scheduleClass.subject.name}`,
+    type: scheduleClass.type,
+    updateType: type,
+    teacher: `${teacher.firstName} ${teacher.middleName} ${teacher.lastName}`,
+    teacherId: teacher.id,
+    room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
+    startDate,
+    endDate,
+    rRule: null,
+    exDate: null,
+  };
+}
+
+export function mapScheduleClassReschedule(reschedule) {
+  const { scheduleClass, type, rescheduleDate, id } = reschedule;
+
+  const { startTime, endTime } = mapScheduleTimeToDate(
+    rescheduleDate,
+    scheduleClass.scheduleTime,
+  );
+
+  return {
+    id,
+    subject: {
+      id: scheduleClass.subject.id,
+      name: scheduleClass.subject.name,
+      shortName: scheduleClass.subject.shortName,
+    },
+    title: scheduleClass.subject.shortName,
+    type: scheduleClass.type,
+    updateType: type,
+    teacher: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName} ${scheduleClass.teacher.lastName}`,
+    teacherId: scheduleClass.teacher.id,
+    room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
+    startDate: startTime,
+    endDate: endTime,
+    rRule: null,
+    exDate: null,
+  };
+}
+
+export function mapScheduleClassToEvent(
+  scheduleClass,
+  options: { includeScheduleTime?: boolean } = {},
+) {
+  const { ScheduleClassUpdate } = scheduleClass;
+
+  const { rRule, endTime, startTime } =
+    createRRuleForScheduleClass(scheduleClass);
+
+  const exDate = ScheduleClassUpdate.filter(
+    (u) =>
+      !(
+        u.type === ScheduleClassUpdate.SWAP &&
+        u.teacherId === scheduleClass.teacher.id
+      ),
+  ).map((u) => new Date(u.classDate));
+
+  return {
+    id: scheduleClass.id,
+    subject: {
+      id: scheduleClass.subject.id,
+      name: scheduleClass.subject.name,
+      shortName: scheduleClass.subject.shortName,
+    },
+    title: scheduleClass.subject.shortName,
     type: scheduleClass.type,
     teacher: `${scheduleClass.teacher.firstName} ${scheduleClass.teacher.middleName} ${scheduleClass.teacher.lastName}`,
     teacherId: scheduleClass.teacher.id,
     room: `${scheduleClass.room.room} - ${scheduleClass.room.campus}`,
     startDate: startTime,
     endDate: endTime,
-    rRule: rRule,
-    exDate,
+    rRule: rRule.toString(),
+    exDate: exDate.join(","),
+    ...(options.includeScheduleTime
+      ? { scheduleTime: scheduleClass.scheduleTime }
+      : {}),
   };
 }
 
@@ -293,4 +265,40 @@ export function mapScheduleClassUpdateAsLogItem(update) {
   }
 
   return { ...baseData, ...updatedData };
+}
+
+export function mapScheduleTimeToDate(date, scheduleTime) {
+  const startTime = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    scheduleTime.startHours,
+    scheduleTime.startMinute,
+    0,
+  );
+
+  const endTime = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    scheduleTime.endHours,
+    scheduleTime.endMinute,
+    0,
+  );
+
+  return { startTime, endTime };
+}
+
+export function clearTimeFromDateObject(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+}
+
+export function mapScheduleTimeToString(scheduleTime) {
+  const { startTime, endTime } = mapScheduleTimeToDate(
+    new Date(),
+    scheduleTime,
+  );
+  return `${moment(startTime).format("HH:mm")} - ${moment(endTime).format(
+    "HH:mm",
+  )}`;
 }

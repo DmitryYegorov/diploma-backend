@@ -1,23 +1,56 @@
-import { Injectable } from "@nestjs/common";
+import { HttpException, Injectable } from "@nestjs/common";
+import * as moment from "moment";
 import { PrismaService } from "../prisma/prisma.service";
 import * as _ from "lodash";
-import { ClassType, ScheduleClassUpdateType, Week } from "../common/enum";
+import { ScheduleClassUpdateType, Week } from "../common/enum";
 import {
   formatScheduleClassesList,
   formatScheduleClassesListForDepartment,
+  mapScheduleClassReschedule,
+  mapScheduleClassSwap,
   mapScheduleClassToEvent,
   mapScheduleClassUpdateAsLogItem,
-  mapScheduleClassUpdateToEvent,
+  mapScheduleTimeToDate,
 } from "./formatters";
 import { UpdateScheduleClassDto } from "./dto/update-schedule-class.dto";
+import { GetScheduleClassesOptionsDto } from "./dto/get-schedule-classes-options.dto";
+
+const updatedSelect = {
+  scheduleClass: {
+    select: {
+      id: true,
+      subject: {
+        select: {
+          id: true,
+          name: true,
+          shortName: true,
+        },
+      },
+      teacher: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          middleName: true,
+        },
+      },
+      room: true,
+      scheduleTime: true,
+      semester: true,
+      type: true,
+    },
+  },
+  classDate: true,
+  teacher: true,
+  type: true,
+  rescheduleDate: true,
+};
 
 @Injectable()
 export class ScheduleService {
   constructor(private prismaService: PrismaService) {}
 
   public async createScheduleClasses(scheduleClass) {
-    const semester = await this.getCurrentSemester();
-
     const oldClassData = await this.prismaService.scheduleClasses.findMany({
       where: {
         teacherId: scheduleClass.teacherId,
@@ -43,7 +76,7 @@ export class ScheduleService {
       data: {
         teacherId: scheduleClass.teacherId,
         roomId: scheduleClass.roomId,
-        semesterId: semester.id,
+        semesterId: scheduleClass.semesterId,
         type: scheduleClass.type,
         subjectId: scheduleClass.subjectId,
         weekDay: scheduleClass.weekDay,
@@ -51,6 +84,8 @@ export class ScheduleService {
         week: scheduleClass.week,
         createdBy: scheduleClass.createdBy,
         createdAt: new Date(),
+        startDate: scheduleClass.startDate,
+        endDate: scheduleClass.endDate,
       },
     });
     for await (const groupId of scheduleClass.groupIds) {
@@ -65,6 +100,26 @@ export class ScheduleService {
     return created;
   }
 
+  public async removeRowByScheduleClassId(id: string) {
+    return this.prismaService.scheduleClasses.delete({ where: { id } });
+  }
+
+  public async getClassById(id: string) {
+    const [classData, groups] = await Promise.all([
+      this.prismaService.scheduleClasses.findFirst({
+        where: { id },
+        include: { room: true },
+      }),
+      this.prismaService.groupScheduleClass.findMany({
+        where: { scheduleClassId: id },
+        include: { group: true },
+      }),
+    ]);
+
+    return { classData, groups };
+  }
+
+  // for department
   public async getScheduleClassOfDepartment(semesterId: string) {
     const teachers = await this.prismaService.user.findMany({
       select: {
@@ -95,6 +150,7 @@ export class ScheduleService {
     return Object.fromEntries(entries);
   }
 
+  // for department
   public async getScheduleClassesBySemester(
     teacherId: string,
     semesterId: string,
@@ -119,12 +175,16 @@ export class ScheduleService {
           select: {
             group: {
               select: {
-                courese: true,
+                course: true,
                 group: true,
                 subGroup: true,
-                faculty: {
+                speciality: {
                   select: {
-                    shortName: true,
+                    faculty: {
+                      select: {
+                        shortName: true,
+                      },
+                    },
                   },
                 },
               },
@@ -152,13 +212,17 @@ export class ScheduleService {
     return formatted;
   }
 
-  public async getScheduleClassesByTeacherForCurrentSem(teacherId: string) {
-    const currentSemester = await this.getCurrentSemester();
+  // for teacher
+  public async getScheduleClassesBySemesterId(
+    teacherId: string,
+    semesterId: string,
+  ) {
     const scheduleClasses = await this.prismaService.scheduleClasses.findMany({
-      where: { teacherId, semesterId: currentSemester.id },
+      where: { teacherId, semesterId: semesterId },
       include: {
         subject: {
           select: {
+            id: true,
             name: true,
             shortName: true,
           },
@@ -179,8 +243,14 @@ export class ScheduleService {
       select: {
         scheduleClassId: true,
         group: {
-          include: {
-            faculty: true,
+          select: {
+            id: true,
+            group: true,
+            subGroup: true,
+            course: true,
+            speciality: {
+              select: { faculty: true },
+            },
           },
         },
       },
@@ -201,15 +271,10 @@ export class ScheduleService {
       groupedScheduleClassesById,
     ).map((scheduleClassId: string) => ({
       ...groupedScheduleClassesById[scheduleClassId][0],
-      groups: groupedGroupsListByScheduleClassId[scheduleClassId].map(
-        (g) =>
-          `${g.group.courese} ${g.group.faculty.shortName} ${g.group.group} ${
-            groupedScheduleClassesById[scheduleClassId][0].type ===
-            ClassType.LAB
-              ? `/${g.group.subGroup}`
-              : ""
-          }`,
-      ),
+      groups: groupedGroupsListByScheduleClassId[scheduleClassId].map((g) => ({
+        label: `${g.group.course} ${g.group.speciality.faculty.shortName} ${g.group.group}-${g.group.subGroup}`,
+        id: g.group.id,
+      })),
     }));
 
     return {
@@ -217,45 +282,42 @@ export class ScheduleService {
     };
   }
 
+  public async getScheduleClassByOptions(
+    options: GetScheduleClassesOptionsDto,
+  ) {
+    const where = {
+      ...options,
+      ...(options.weekDay !== undefined ? { weekDay: +options.weekDay } : {}),
+    };
+    const res = await this.prismaService.scheduleClasses.findMany({
+      where: where,
+      include: {
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            shortName: true,
+          },
+        },
+        room: true,
+        scheduleTime: true,
+        semester: true,
+      },
+    });
+    return _.groupBy(res, "week");
+  }
+
   public async getScheduleClassesListByTeacherId(
     teacherId: string,
+    toReport = false,
   ): Promise<Array<any>> {
-    const currentSemester = await this.getCurrentSemester();
-    const updatedSelect = {
-      scheduleClass: {
-        select: {
-          subject: {
-            select: {
-              name: true,
-              shortName: true,
-            },
-          },
-          teacher: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              middleName: true,
-            },
-          },
-          room: true,
-          scheduleTime: true,
-          semester: true,
-          type: true,
-        },
-      },
-      classDate: true,
-      teacher: true,
-      type: true,
-      rescheduleDate: true,
-    };
-
     const list = await this.prismaService.scheduleClasses.findMany({
-      where: { teacherId, semesterId: currentSemester.id },
+      where: { teacherId },
       include: {
         ScheduleClassUpdate: true,
         subject: {
           select: {
+            id: true,
             name: true,
             shortName: true,
           },
@@ -274,7 +336,7 @@ export class ScheduleService {
       },
     });
 
-    const [swaps, other] = await Promise.all([
+    const [swaps, reschedule] = await Promise.all([
       this.prismaService.scheduleClassUpdate.findMany({
         where: { teacherId, type: ScheduleClassUpdateType.SWAP },
         select: updatedSelect,
@@ -282,22 +344,18 @@ export class ScheduleService {
       this.prismaService.scheduleClassUpdate.findMany({
         where: {
           createdBy: teacherId,
-          type: { not: ScheduleClassUpdateType.SWAP },
+          type: ScheduleClassUpdateType.RESCHEDULED,
         },
         select: updatedSelect,
       }),
     ]);
 
-    const updated = [...swaps, ...other].filter(
-      (u) => u.type !== ScheduleClassUpdateType.CANCEL,
-    );
-
-    return [
-      ...list.map((sc) => mapScheduleClassToEvent(sc)),
-      ...(updated.length
-        ? updated.map((u) => mapScheduleClassUpdateToEvent(u))
-        : []),
+    const updated = [
+      ...swaps.map((swap) => mapScheduleClassSwap(swap, toReport)),
+      ...reschedule.map((r) => mapScheduleClassReschedule(r)),
     ];
+
+    return [...list.map((sc) => mapScheduleClassToEvent(sc)), ...updated];
   }
 
   public async swapTeacherOnScheduleClass(
@@ -333,47 +391,32 @@ export class ScheduleService {
     };
   }
 
-  public async getCurrentSemester() {
-    const now = new Date();
-    const semester = await this.prismaService.semester.findFirst({
-      where: {
-        startDate: {
-          lte: now,
-        },
-        endDate: {
-          gte: now,
-        },
-      },
-      include: {
-        academicYear: true,
-      },
-    });
-
-    return {
-      id: semester.id,
-      semester: {
-        startDate: semester.startDate,
-        endDate: semester.endDate,
-      },
-      academicYear: {
-        id: semester.academicYearId,
-        startDate: semester.academicYear.startDate,
-        endDate: semester.academicYear.endDate,
-      },
-    };
-  }
-
   public async updateScheduleClass(
     data: UpdateScheduleClassDto & { createdBy: string },
   ) {
-    const {
-      scheduleClassId,
-      type,
-      reason,
-      rescheduleDate,
-      classDate,
-      createdBy,
-    } = data;
+    const { scheduleClassId, type, reason, createdBy } = data;
+
+    const { scheduleTime } = await this.prismaService.scheduleClasses.findFirst(
+      {
+        select: {
+          scheduleTime: true,
+        },
+        where: { id: scheduleClassId },
+      },
+    );
+
+    const rescheduleDate =
+      type === ScheduleClassUpdateType.RESCHEDULED
+        ? mapScheduleTimeToDate(
+            moment(data.rescheduleDate).toDate(),
+            scheduleTime,
+          ).startTime
+        : null;
+
+    const classDate = mapScheduleTimeToDate(
+      moment(data.classDate).toDate(),
+      scheduleTime,
+    ).startTime;
 
     return this.prismaService.scheduleClassUpdate.create({
       data: {
@@ -436,5 +479,127 @@ export class ScheduleService {
     });
 
     return updates.map((u) => mapScheduleClassUpdateAsLogItem(u));
+  }
+
+  public async getSwapsByTeacherId(
+    teacherId: string,
+    startDate: Date | string,
+    endDate: Date | string,
+  ) {
+    const swaps = await this.prismaService.scheduleClassUpdate.findMany({
+      select: updatedSelect,
+      where: {
+        teacherId,
+        type: ScheduleClassUpdateType.SWAP,
+        classDate: {
+          lte: endDate,
+          gte: startDate,
+        },
+      },
+    });
+
+    return swaps.map((s) => mapScheduleClassSwap(s));
+  }
+
+  public async getReschedulesClassesByTeacherId(
+    teacherId: string,
+    startDate: Date | string,
+    endDate: Date | string,
+  ) {
+    const reschedules = await this.prismaService.scheduleClassUpdate.findMany({
+      select: updatedSelect,
+      where: {
+        createdBy: teacherId,
+        type: ScheduleClassUpdateType.RESCHEDULED,
+        rescheduleDate: {
+          lte: endDate,
+          gte: startDate,
+        },
+      },
+    });
+
+    return reschedules.map((r) => mapScheduleClassReschedule(r));
+  }
+
+  public async getClassesByTeacherId(teacherId: string) {
+    const classes = await this.prismaService.scheduleClasses.findMany({
+      where: { teacherId },
+      include: {
+        ScheduleClassUpdate: true,
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            shortName: true,
+          },
+        },
+        teacher: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            middleName: true,
+          },
+        },
+        room: true,
+        scheduleTime: true,
+        semester: true,
+      },
+    });
+    return classes.map((c) =>
+      mapScheduleClassToEvent(c, { includeScheduleTime: true }),
+    );
+  }
+
+  public async updateDataScheduleClass(id: string, data: any) {
+    const { groups } = data;
+
+    console.log({ groups });
+
+    if (groups?.length) {
+      const createData: Array<any> = groups.map((g) => ({
+        scheduleClassId: id,
+        groupId: g.id,
+      }));
+
+      console.log({ createData });
+
+      await Promise.all([
+        this.prismaService.groupScheduleClass.deleteMany({
+          where: {
+            scheduleClassId: id,
+          },
+        }),
+        this.prismaService.groupScheduleClass.createMany({
+          data: createData,
+        }),
+      ]);
+    }
+
+    delete data.groups;
+
+    const scheduleClasses = await this.prismaService.scheduleClasses.findMany({
+      where: {
+        id: {
+          not: id,
+        },
+        weekDay: data.weekDay,
+        scheduleTimeId: data.scheduleTimeId,
+        week: {
+          in: [data.week as Week, Week.WEEKLY],
+        },
+      },
+    });
+
+    if (scheduleClasses.length > 0) {
+      throw new HttpException(
+        { message: "Обновление невозможно. На это время стоит занятие!" },
+        400,
+      );
+    }
+
+    return Promise.all([
+      this.prismaService.scheduleClasses.update({ where: { id }, data }),
+    ]);
   }
 }
