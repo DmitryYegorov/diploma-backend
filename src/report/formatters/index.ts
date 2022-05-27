@@ -57,22 +57,23 @@ export function mapReportRowToWidthSubjectName(
 ): ReportLoadWithSubject {
   return {
     id: data.id,
-    subjectId: data.subject.id,
-    subjectName: data.subject.shortName,
+    subjectId: data.subject?.id,
+    subjectName: data.subject?.shortName,
     date: data.date,
     type: data.type,
     duration: data.duration,
   };
 }
 
-export function mapOtherLoadRowToReportData(
-  row: OtherLoad & { subject?: Subject; faculty: Faculty },
-) {
+export function mapOtherLoadRowToReportData(row: any) {
+  const groups = row.OtherLoadGroup.map((olg) => olg.group);
+
   return {
     id: row.id,
     type: row.type,
     isOtherLoad: true,
     subjectName: row.subjectId ? row.subject.shortName : EventTypeMap[row.type],
+    subjectId: row.subjectId,
     facultyId: row.faculty.id,
     facultyName: row.faculty.shortName,
     groupsCount: row.groupsCount,

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -50,11 +51,11 @@ export class ReportController {
   }
 
   // load data to new empty report
-  @Get("/:reportId/study")
+  @Get("/:reportId/load")
   @UseGuards(JwtAuthGuard)
-  public async loadStudyClassesToReport(@Request() req, @Param() param) {
+  public async loadDataToReport(@Request() req, @Param() param) {
     const { reportId } = param;
-    return this.reportService.loadScheduleClassesToReport(reportId);
+    return this.reportService.loadDataToReport(reportId);
   }
 
   @Post("/:reportId/calculate")
@@ -108,5 +109,12 @@ export class ReportController {
     const { adminNote } = body;
     const { reportId } = param;
     return this.reportService.cancelReport(reportId, adminNote);
+  }
+
+  @Delete("/load/:id")
+  @UseGuards(JwtAuthGuard)
+  public async removeLoadItemFromReport(@Param() param) {
+    const { id } = param;
+    return this.reportService.removeLoadItemFromReport(id);
   }
 }

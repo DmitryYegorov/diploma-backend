@@ -72,6 +72,13 @@ enum ReportState {
   APPROVED
 }
 
+enum ReportType {
+  MONTH
+  SEMESTER
+  YEAR
+  TOTAL
+}
+
 model User {
   id             String    @id @default(value: uuid()) @db.Uuid
   email          String    @unique @db.VarChar()
@@ -156,7 +163,6 @@ model Faculty {
   name      String @db.VarChar()
   shortName String @db.VarChar()
 
-  OtherLoad  OtherLoad[]
   Speciality Speciality[] @relation("FacultyOnGroup")
   @@map("faculty")
 }
@@ -173,6 +179,7 @@ model Group {
 
   GroupScheduleClass GroupScheduleClass[]
   LoadPlanSubGroups  LoadPlanSubGroups[]
+  OtherLoadGroup     OtherLoadGroup[]
   @@map("group")
 }
 
@@ -211,6 +218,7 @@ model Semester {
   Group           Group[]
   LoadPlan        LoadPlan[]
   @@map("semester")
+  OtherLoad OtherLoad[]
 }
 
 model AcademicYear {
@@ -228,7 +236,7 @@ model ReportLoad {
   type      LoadType?
   subject   Subject?  @relation(fields: [subjectId], references: [id])
   subjectId String?   @db.Uuid
-  report    Report    @relation(fields: [reportId], references: [id])
+  report    Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
   reportId  String    @db.Uuid
   duration  Float
   date      DateTime
@@ -240,19 +248,27 @@ model ReportLoad {
 model OtherLoad {
   id            String    @id @default(value: uuid()) @db.Uuid
   type          EventType
-  groupsCount   Int?
   studentsCount Int?
-  faculty       Faculty   @relation(fields: [facultyId], references: [id])
-  facultyId     String    @db.Uuid
   subject       Subject?  @relation(fields: [subjectId], references: [id])
   subjectId     String?   @db.Uuid
   duration      Float
   date          DateTime
+  semester      Semester  @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  semesterId    String    @db.Uuid
   createdAt     DateTime? @default(value: now())
   created       User      @relation(fields: [createdBy], references: [id])
   createdBy     String    @db.Uuid
 
+  OtherLoadGroup OtherLoadGroup[]
   @@map("other-load")
+}
+
+model OtherLoadGroup {
+  id          String    @id @default(value: uuid()) @db.Uuid
+  group       Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId     String    @db.Uuid
+  otherLoad   OtherLoad @relation(fields: [otherLoadId], references: [id], onDelete: Cascade)
+  otherLoadId String    @db.Uuid
 }
 
 model ScheduleClassUpdate {
@@ -275,10 +291,11 @@ model Report {
   id         String       @id @default(value: uuid()) @db.Uuid
   name       String       @db.VarChar()
   state      ReportState? @default(DRAFT)
+  type       ReportType
   startDate  DateTime
   endDate    DateTime
   createdAt  DateTime?    @default(value: now())
-  creater    User         @relation(fields: [createdBy], references: [id])
+  creater    User         @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   createdBy  String       @db.Uuid
   sentAt     DateTime?
   approvedAt DateTime?
@@ -291,7 +308,7 @@ model Report {
 
 model CalculatedReport {
   id        String    @id @default(value: uuid()) @db.Uuid
-  report    Report    @relation(fields: [reportId], references: [id])
+  report    Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
   reportId  String    @db.Uuid
   data      Json
   createdAt DateTime? @default(value: now())

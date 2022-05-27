@@ -40,15 +40,21 @@ export class ReportService {
     },
   };
 
-  public createNewReport(createReportDto: CreateReportDto, userId: string) {
-    return this.prismaService.report.create({
+  public async createNewReport(
+    createReportDto: CreateReportDto,
+    userId: string,
+  ) {
+    const report = await this.prismaService.report.create({
       data: {
         name: createReportDto.name,
         startDate: createReportDto.startDate,
         endDate: createReportDto.endDate,
         createdBy: userId,
+        type: createReportDto.type,
       },
     });
+
+    await this.loadDataToReport(report.id);
   }
 
   public async getReportsByUserId(userId: string) {
@@ -91,7 +97,19 @@ export class ReportService {
         createdBy,
       },
       include: {
-        faculty: true,
+        OtherLoadGroup: {
+          include: {
+            group: {
+              include: {
+                speciality: {
+                  include: {
+                    faculty: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         subject: true,
       },
     });
@@ -99,7 +117,7 @@ export class ReportService {
     return otherLoad.map((ol) => mapOtherLoadRowToReportData(ol));
   }
 
-  public async loadScheduleClassesToReport(reportId: string) {
+  public async loadDataToReport(reportId: string) {
     const report = await this.prismaService.report.findFirst({
       where: { id: reportId },
     });
@@ -165,27 +183,30 @@ export class ReportService {
         where: { reportId: report.id },
       }),
       this.prismaService.reportLoad.createMany({
-        data: listWithDates.map((l) => {
-          delete l.updateType;
-          return l;
-        }),
+        data: [
+          ...listWithDates.map((l) => {
+            delete l.updateType;
+            return l;
+          }),
+          ...otherLoad.map((ol) => ({
+            type: ol.type,
+            subjectId: ol.subjectId,
+            reportId: report.id,
+            duration: ol.duration,
+            date: ol.date,
+          })),
+        ],
       }),
     ]);
 
-    const studyLoadData = await this.prismaService.reportLoad.findMany({
+    const loadData = await this.prismaService.reportLoad.findMany({
       include: {
         subject: true,
       },
       where: { reportId },
     });
 
-    return {
-      list: [
-        ...studyLoadData.map((sl) => mapReportRowToWidthSubjectName(sl)),
-        ...otherLoad,
-      ],
-      total: studyLoadData.length + otherLoad.length,
-    };
+    return loadData.map((sl) => mapReportRowToWidthSubjectName(sl));
   }
 
   public async calculateLoadByReportId(reportId) {
@@ -291,6 +312,10 @@ export class ReportService {
     });
 
     return update;
+  }
+
+  public async removeLoadItemFromReport(id: string) {
+    return this.prismaService.reportLoad.delete({ where: { id } });
   }
 
   private async getReportLoadByReportId(reportId: string) {
