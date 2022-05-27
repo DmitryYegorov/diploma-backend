@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 import { GroupsService } from "./groups.service";
 import { JwtAuthGuard } from "../auth/guards/auth.guard";
 import { Role } from "../auth/guards/roles.decorator";
@@ -31,5 +39,11 @@ export class GroupsController {
   @UseGuards(RolesGuard)
   public async addGroups(@Body() body: AddGroupsDto) {
     return this.groupsService.addGroups(body);
+  }
+
+  @Get("/semester/:semesterId")
+  public async getSpecialitiesWithCourse(@Param() param) {
+    const { semesterId } = param;
+    return this.groupsService.getSpecialitiesWithCourse(semesterId);
   }
 }

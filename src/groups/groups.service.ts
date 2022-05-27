@@ -27,7 +27,7 @@ export class GroupsService {
       course: item.course,
       facultyId: item.speciality.faculty.id,
       facultyName: item.speciality.faculty.shortName,
-      label: `${item.course}к. ${item.group}-${item.subGroup}.гр. ${item.speciality.faculty.shortName}`,
+      label: `${item.course}к. ${item.group}-${item.subGroup} ${item.speciality.faculty.shortName}`,
     }));
   }
 
@@ -83,5 +83,49 @@ export class GroupsService {
     }
 
     return this.prismaService.group.createMany({ data: groups });
+  }
+
+  public async getSpecialitiesWithCourse(semesterId: string) {
+    const data = await this.prismaService.group.findMany({
+      distinct: ["course", "specialityId", "semesterId"],
+      select: {
+        course: true,
+        speciality: {
+          select: {
+            id: true,
+            shortName: true,
+          },
+        },
+      },
+      where: { semesterId },
+    });
+
+    const res = [];
+
+    for await (const item of data) {
+      const subGroups = await this.prismaService.group.findMany({
+        select: { id: true, group: true, subGroup: true },
+        where: {
+          course: item.course,
+          semesterId,
+          specialityId: item.speciality.id,
+        },
+      });
+
+      res.push({ ...item, subGroups });
+    }
+
+    return res
+      .sort((a, b) => b.course - a.course)
+      .map((item) => ({
+        course: item.course,
+        specialityName: item.speciality.shortName,
+        specialityId: item.speciality.id,
+        subGroups: item.subGroups.map((sg) => ({
+          id: sg.id,
+          group: sg.group,
+          subGroup: sg.subGroup,
+        })),
+      }));
   }
 }
