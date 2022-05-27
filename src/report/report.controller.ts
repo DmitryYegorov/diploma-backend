@@ -50,8 +50,15 @@ export class ReportController {
     return this.reportService.getReportById(id);
   }
 
-  // load data to new empty report
   @Get("/:reportId/load")
+  @UseGuards(JwtAuthGuard)
+  public async loadExistingDataToReport(@Request() req, @Param() param) {
+    const { reportId } = param;
+    return this.reportService.getExistingLoadDataByReport(reportId);
+  }
+
+  // load actual data to new empty report
+  @Get("/:reportId/new-load")
   @UseGuards(JwtAuthGuard)
   public async loadDataToReport(@Request() req, @Param() param) {
     const { reportId } = param;
@@ -116,5 +123,12 @@ export class ReportController {
   public async removeLoadItemFromReport(@Param() param) {
     const { id } = param;
     return this.reportService.removeLoadItemFromReport(id);
+  }
+
+  @Delete("/:id")
+  @UseGuards(JwtAuthGuard)
+  public async deleteReport(@Param() param) {
+    const { id } = param;
+    return this.reportService.removeReportById(id);
   }
 }

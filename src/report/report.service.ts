@@ -154,6 +154,7 @@ export class ReportService {
 
       dates.forEach((date) => {
         listWithDates.push({
+          scheduleClassId: sch.id,
           subjectId: sch.subject.id,
           type: sch.type,
           id: uuidv4(),
@@ -166,6 +167,7 @@ export class ReportService {
 
     [...swaps, ...reschedules].forEach((sch) =>
       listWithDates.push({
+        scheduleClassId: sch.scheduleClassId,
         subjectId: sch.subject.id,
         type: sch.type,
         id: uuidv4(),
@@ -189,6 +191,7 @@ export class ReportService {
             return l;
           }),
           ...otherLoad.map((ol) => ({
+            otherLoadId: ol.id,
             type: ol.type,
             subjectId: ol.subjectId,
             reportId: report.id,
@@ -199,9 +202,43 @@ export class ReportService {
       }),
     ]);
 
+    return this.getExistingLoadDataByReport(reportId);
+  }
+
+  public async getExistingLoadDataByReport(reportId: string) {
     const loadData = await this.prismaService.reportLoad.findMany({
       include: {
         subject: true,
+        scheduleClass: {
+          include: {
+            GroupScheduleClass: {
+              include: {
+                group: {
+                  include: {
+                    speciality: {
+                      include: { faculty: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        otherLoad: {
+          include: {
+            OtherLoadGroup: {
+              include: {
+                group: {
+                  include: {
+                    speciality: {
+                      include: { faculty: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       where: { reportId },
     });
@@ -316,6 +353,10 @@ export class ReportService {
 
   public async removeLoadItemFromReport(id: string) {
     return this.prismaService.reportLoad.delete({ where: { id } });
+  }
+
+  public async removeReportById(id: string) {
+    return this.prismaService.report.delete({ where: { id } });
   }
 
   private async getReportLoadByReportId(reportId: string) {

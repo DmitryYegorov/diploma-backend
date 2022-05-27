@@ -171,6 +171,7 @@ export function mapScheduleClassSwap(swap, toReport = false) {
     endDate,
     rRule: null,
     exDate: null,
+    scheduleClassId: scheduleClass.id,
   };
 }
 
@@ -199,6 +200,7 @@ export function mapScheduleClassReschedule(reschedule) {
     endDate: endTime,
     rRule: null,
     exDate: null,
+    scheduleClassId: scheduleClass.id,
   };
 }
 

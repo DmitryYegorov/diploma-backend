@@ -145,6 +145,7 @@ model ScheduleClasses {
   GroupScheduleClass  GroupScheduleClass[]
   ScheduleClassUpdate ScheduleClassUpdate[]
   @@map("schedule-classes")
+  ReportLoad ReportLoad[]
 }
 
 model GroupScheduleClass {
@@ -217,8 +218,8 @@ model Semester {
   ScheduleClasses ScheduleClasses[] @relation("SemesterOnScheduleClasees")
   Group           Group[]
   LoadPlan        LoadPlan[]
+  OtherLoad       OtherLoad[]
   @@map("semester")
-  OtherLoad OtherLoad[]
 }
 
 model AcademicYear {
@@ -232,15 +233,19 @@ model AcademicYear {
 }
 
 model ReportLoad {
-  id        String    @id @default(value: uuid()) @db.Uuid
-  type      LoadType?
-  subject   Subject?  @relation(fields: [subjectId], references: [id])
-  subjectId String?   @db.Uuid
-  report    Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  reportId  String    @db.Uuid
-  duration  Float
-  date      DateTime
-  createdAt DateTime? @default(value: now())
+  id              String           @id @default(value: uuid()) @db.Uuid
+  type            LoadType?
+  subject         Subject?         @relation(fields: [subjectId], references: [id])
+  subjectId       String?          @db.Uuid
+  report          Report           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportId        String           @db.Uuid
+  duration        Float
+  date            DateTime
+  createdAt       DateTime?        @default(value: now())
+  otherLoad       OtherLoad?       @relation(fields: [otherLoadId], references: [id], onDelete: Cascade)
+  otherLoadId     String?          @db.Uuid
+  scheduleClass   ScheduleClasses? @relation(fields: [scheduleClassId], references: [id], onDelete: Cascade)
+  scheduleClassId String?          @db.Uuid
 
   @@map("report-load")
 }
@@ -261,6 +266,7 @@ model OtherLoad {
 
   OtherLoadGroup OtherLoadGroup[]
   @@map("other-load")
+  ReportLoad ReportLoad[]
 }
 
 model OtherLoadGroup {

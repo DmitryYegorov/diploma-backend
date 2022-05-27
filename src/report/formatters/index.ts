@@ -52,9 +52,28 @@ export function mapReportDataToItemList(report: Report & { creater: User }) {
   };
 }
 
-export function mapReportRowToWidthSubjectName(
-  data: ReportLoad & { subject: Subject },
-): ReportLoadWithSubject {
+export function mapReportRowToWidthSubjectName(data: any) {
+  const groups = [];
+
+  const { scheduleClass, otherLoad } = data;
+
+  if (scheduleClass) {
+    scheduleClass.GroupScheduleClass.forEach((item) =>
+      groups.push({
+        label: `${item.group.course}к. ${item.group.speciality.faculty.shortName} ${item.group.group}-${item.group.subGroup}`,
+        speciality: item.group.speciality.shortName,
+      }),
+    );
+  }
+  if (otherLoad) {
+    otherLoad.OtherLoadGroup.forEach((item) =>
+      groups.push({
+        label: `${item.group.course}к. ${item.group.speciality.faculty.shortName} ${item.group.group}-${item.group.subGroup}`,
+        speciality: item.group.speciality.shortName,
+      }),
+    );
+  }
+
   return {
     id: data.id,
     subjectId: data.subject?.id,
@@ -62,20 +81,19 @@ export function mapReportRowToWidthSubjectName(
     date: data.date,
     type: data.type,
     duration: data.duration,
+    groups,
   };
 }
 
 export function mapOtherLoadRowToReportData(row: any) {
-  const groups = row.OtherLoadGroup.map((olg) => olg.group);
-
   return {
     id: row.id,
     type: row.type,
     isOtherLoad: true,
     subjectName: row.subjectId ? row.subject.shortName : EventTypeMap[row.type],
     subjectId: row.subjectId,
-    facultyId: row.faculty.id,
-    facultyName: row.faculty.shortName,
+    facultyId: row.faculty?.id,
+    facultyName: row.faculty?.shortName,
     groupsCount: row.groupsCount,
     studentsCount: row.studentsCount,
     duration: row.duration,
