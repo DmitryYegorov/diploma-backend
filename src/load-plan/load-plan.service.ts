@@ -21,10 +21,7 @@ export class LoadPlanService {
     });
   }
 
-  public async addLoadItemToPlan(
-    loadItemData: AddLoadPlanItemDto,
-    groups: Array<string>,
-  ) {
+  public async addLoadItemToPlan(loadItemData: AddLoadPlanItemDto) {
     const existedItems = await this.prismaService.loadPlan.findMany({
       where: {
         subjectId: loadItemData.subjectId,
@@ -44,11 +41,7 @@ export class LoadPlanService {
       data: loadItemData,
     });
 
-    const addedGroups = await this.prismaService.loadPlanSubGroups.createMany({
-      data: groups.map((g) => ({ groupId: g, loadPlanId: loadPlan.id })),
-    });
-
-    return { loadPlan, addedGroups };
+    return loadPlan;
   }
 
   public async getLoadPlanedByOptions(options: LoadPlanedOptionsDto) {
@@ -62,20 +55,9 @@ export class LoadPlanService {
       },
       include: {
         subject: true,
-        LoadPlanSubGroups: {
+        speciality: {
           include: {
-            group: {
-              include: {
-                speciality: {
-                  include: { faculty: true },
-                },
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            LoadPlanSubGroups: true,
+            faculty: true,
           },
         },
       },
@@ -103,11 +85,14 @@ export class LoadPlanService {
 
       result.push({
         subjectName: key,
-        subGroupsCount: subjectItems.reduce(
-          (acc, item) => acc + item.subGroupsCount,
+        subgroupsCount: subjectItems.reduce(
+          (acc, item) => acc + item.subgroupsCount,
           0,
         ),
         specialityName: subjectItems.map((sp) => sp.specialityName).flat(),
+        courseAndSpecialityLabel: subjectItems
+          .map((sp) => sp.courseAndSpecialityLabel)
+          .flat(),
         facultyName: subjectItems.map((sub) => sub.facultyName).flat(),
         ...Object.fromEntries(entries),
       });
@@ -124,9 +109,10 @@ export class LoadPlanService {
       result.push({
         subjectName: EventTypeMap[key],
         [key]: loadByTypes[key],
-        subGroupsCount: groupedByType[key][0].subGroupsCount,
-        groups: groupedByType[key][0].groups,
+        subgroupsCount: groupedByType[key][0].subgroupsCount,
         specialityName: groupedByType[key][0].specialityName,
+        courseAndSpecialityLabel:
+          groupedByType[key][0].courseAndSpecialityLabel,
         facultyName: groupedByType[key][0].facultyName,
       });
     });
@@ -134,6 +120,10 @@ export class LoadPlanService {
     return result.map((item) => ({
       ...item,
       specialityName: unique(item.specialityName.flat()).join(", "),
+      courseAndSpecialityLabel: unique(
+        item.courseAndSpecialityLabel.flat(),
+      ).join(", "),
+      subgroupsCount: item.subgroupsCount,
       facultyName: unique(item.facultyName.flat()).join(", "),
       total: Object.values(LoadType)
         .filter((type) => !!item[type])
@@ -148,17 +138,9 @@ export class LoadPlanService {
       orderBy: { subjectId: "asc" },
       include: {
         subject: true,
-        LoadPlanSubGroups: {
+        speciality: {
           include: {
-            group: {
-              include: {
-                speciality: {
-                  include: {
-                    faculty: true,
-                  },
-                },
-              },
-            },
+            faculty: true,
           },
         },
       },
@@ -172,25 +154,12 @@ export class LoadPlanService {
     return this.prismaService.loadPlan.delete({ where: { id } });
   }
 
-  public async updateLoadPlanItemData(
-    id: string,
-    newData: any,
-    groups: Array<string>,
-  ) {
+  public async updateLoadPlanItemData(id: string, newData: any) {
     const updateLoadItem = await this.prismaService.loadPlan.update({
       where: { id },
       data: newData,
     });
 
-    const [oldGroups, newGroups] = await Promise.all([
-      this.prismaService.loadPlanSubGroups.deleteMany({
-        where: { loadPlanId: id },
-      }),
-      this.prismaService.loadPlanSubGroups.createMany({
-        data: groups.map((g) => ({ loadPlanId: id, groupId: g })),
-      }),
-    ]);
-
-    return { updateLoadItem, oldGroups, newGroups };
+    return updateLoadItem;
   }
 }

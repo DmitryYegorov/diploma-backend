@@ -1,29 +1,6 @@
 import { unique } from "../../common/helpers";
 
 export function mapDbDataToLoadPlanTable(loadPlan) {
-  const groups = loadPlan.LoadPlanSubGroups.map((item) => ({
-    id: item.group.id,
-    facultyName: item.group.speciality.faculty.shortName,
-    course: item.group.course,
-    group: item.group.group,
-    subGroup: item.group.subGroup,
-    specialityName: item.group.speciality.shortName,
-  }));
-
-  const specialityLabels = unique(
-    groups.map((g) => `${g.course} ${g.specialityName}`),
-  );
-
-  const facultyLabels = unique(groups.map((g) => g.facultyName));
-
-  const subGroupsLabels = groups.map((g) => ({
-    label: `${g.course}к. ${g.group}-${g.subGroup} ${g.facultyName}`,
-    specialityName: g.specialityName,
-    id: g.id,
-  }));
-
-  const subGroupsCount = loadPlan._count?.LoadPlanSubGroups;
-
   return {
     id: loadPlan.id,
     subjectName: loadPlan.subject?.shortName,
@@ -31,9 +8,11 @@ export function mapDbDataToLoadPlanTable(loadPlan) {
     duration: loadPlan.duration,
     type: loadPlan.type,
     semesterId: loadPlan.semesterId,
-    subGroupsCount,
-    subGroupsLabels,
-    specialityName: specialityLabels,
-    facultyName: facultyLabels,
+    subgroupsCount: loadPlan.subgroupsCount,
+    specialityName: loadPlan.speciality.shortName,
+    courseAndSpecialityLabel: `${loadPlan.course} ${loadPlan.speciality.shortName}`,
+    facultyName: loadPlan.speciality.faculty.shortName,
+    specialityId: loadPlan.specialityId,
+    course: loadPlan.course,
   };
 }

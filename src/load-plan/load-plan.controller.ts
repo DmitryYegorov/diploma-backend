@@ -29,8 +29,7 @@ export class LoadPlanController {
   @Post()
   @UseGuards(JwtAuthGuard)
   public async addLoadPlanItem(@Body() body) {
-    const { groups, loadPlan } = body;
-    return this.loadPlanService.addLoadItemToPlan(loadPlan, groups);
+    return this.loadPlanService.addLoadItemToPlan(body);
   }
 
   @Get("mapped")
@@ -66,6 +65,6 @@ export class LoadPlanController {
     const { id } = param;
     const { groups, newData } = body;
 
-    return this.loadPlanService.updateLoadPlanItemData(id, newData, groups);
+    return this.loadPlanService.updateLoadPlanItemData(id, newData);
   }
 }

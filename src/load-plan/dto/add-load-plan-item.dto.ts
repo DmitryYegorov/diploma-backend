@@ -6,4 +6,7 @@ export class AddLoadPlanItemDto {
   readonly type: LoadType;
   readonly teacherId: string;
   readonly duration: number;
+  readonly subgroupsCount: number;
+  readonly specialityId: string;
+  readonly course: number;
 }

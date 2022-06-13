@@ -178,7 +178,6 @@ model Group {
   specialityId String     @db.Uuid
 
   GroupScheduleClass GroupScheduleClass[]
-  LoadPlanSubGroups  LoadPlanSubGroups[]
   OtherLoadGroup     OtherLoadGroup[]
   @@map("group")
 }
@@ -320,34 +319,28 @@ model Speciality {
   name      String  @db.VarChar()
   shortName String  @db.VarChar()
 
-  Group Group[]
+  Group    Group[]
+  LoadPlan LoadPlan[]
   @@map("specialty")
 }
 
 model LoadPlan {
-  id         String    @id @default(value: uuid()) @db.Uuid
-  type       LoadType
-  subject    Subject?  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  subjectId  String?   @db.Uuid
-  duration   Float
-  semester   Semester  @relation(fields: [semesterId], references: [id], onDelete: Cascade)
-  semesterId String    @db.Uuid
-  teacher    User      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  teacherId  String    @db.Uuid
-  createdAt  DateTime? @default(value: now())
+  id             String     @id @default(value: uuid()) @db.Uuid
+  type           String     @db.VarChar()
+  subgroupsCount Int
+  speciality     Speciality @relation(fields: [specialityId], references: [id])
+  specialityId   String     @db.Uuid
+  course         Int
+  subject        Subject?   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectId      String?    @db.Uuid
+  duration       Float
+  semester       Semester   @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  semesterId     String     @db.Uuid
+  teacher        User       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId      String     @db.Uuid
+  createdAt      DateTime?  @default(value: now())
 
-  LoadPlanSubGroups LoadPlanSubGroups[]
   @@map("load-plan")
-}
-
-model LoadPlanSubGroups {
-  id         String   @id @default(value: uuid()) @db.Uuid
-  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  groupId    String   @db.Uuid
-  loadPlan   LoadPlan @relation(fields: [loadPlanId], references: [id], onDelete: Cascade)
-  loadPlanId String   @db.Uuid
-
-  @@map("load-plan_group")
 }
 
 model TotalReport {
