@@ -554,15 +554,11 @@ export class ScheduleService {
   public async updateDataScheduleClass(id: string, data: any) {
     const { groups } = data;
 
-    console.log({ groups });
-
     if (groups?.length) {
       const createData: Array<any> = groups.map((g) => ({
         scheduleClassId: id,
         groupId: g.id,
       }));
-
-      console.log({ createData });
 
       await Promise.all([
         this.prismaService.groupScheduleClass.deleteMany({

@@ -7,7 +7,7 @@ import { LoginUserDto } from "./dto/login-user.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
 import { EmailService } from "../email/email.service";
 
-const { SECRET } = process.env;
+const { SECRET, FRONT_URL } = process.env;
 
 @Injectable()
 export class AuthService {
@@ -27,6 +27,22 @@ export class AuthService {
       if (!user) {
         throw new HttpException(
           { message: "Некорректные данные для входа" },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (user.activationCode) {
+        throw new HttpException(
+          { message: "Необходимо подтвердить адрес эл. почты!" },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (!user.activationCode && !user.isActive) {
+        throw new HttpException(
+          {
+            message: "Доступ закрыт! Обратитесь к администратору",
+          },
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -92,11 +108,10 @@ export class AuthService {
         },
       });
 
-      await this.sendMailWithActivateLink(createdUser);
+      await this.sendMailWithActivateLink(createdUser, FRONT_URL);
 
       return createdUser;
     } catch (e) {
-      console.log(e);
       throw e;
     }
   }
@@ -132,7 +147,10 @@ export class AuthService {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function
-  private async sendMailWithActivateLink(createdUser: User): Promise<void> {
+  private async sendMailWithActivateLink(
+    createdUser: User,
+    frontUrl: string,
+  ): Promise<void> {
     const sendMailOptions = {
       to: createdUser.email,
       from: "e.department.belstu@gmail.com",
@@ -141,6 +159,8 @@ export class AuthService {
       text: "",
       context: {
         name: `${createdUser.firstName} ${createdUser.middleName} ${createdUser.firstName}`,
+        activationCode: createdUser.activationCode,
+        frontUrl,
       },
     };
 

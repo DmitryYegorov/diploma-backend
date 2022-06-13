@@ -5,7 +5,6 @@ import { Injectable } from "@nestjs/common";
 @Injectable()
 export class SubjectService {
   constructor(private prismaService: PrismaService) {}
-
   public async createSubject(body: CreateSubjectDto, userId: string) {
     const { name, shortName } = body;
 

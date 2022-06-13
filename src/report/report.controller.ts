@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Request,
   UseGuards,
 } from "@nestjs/common";
@@ -39,8 +40,8 @@ export class ReportController {
   @UseGuards(JwtAuthGuard)
   @Role([UserRole.ADMIN, UserRole.MANAGER])
   @UseGuards(RolesGuard)
-  public async getSentReportList() {
-    return this.reportService.getSentReports();
+  public async getSentReportList(@Query() query) {
+    return this.reportService.getSentReports(query);
   }
 
   @Get("/:id")
@@ -65,29 +66,12 @@ export class ReportController {
     return this.reportService.loadDataToReport(reportId);
   }
 
-  @Post("/:reportId/calculate")
+  @Get("/month/:reportId/mapped")
   @UseGuards(JwtAuthGuard)
-  public async calculateReportData(@Request() req, @Param() param) {
-    const { reportId } = param;
-    const userId = req.user.id;
-
-    return this.reportService.calculateLoadByReportId(reportId);
-  }
-
-  @Get("/:reportId/calculate")
-  @UseGuards(JwtAuthGuard)
-  public async getCalculatedReportData(@Request() req, @Param() param) {
+  public async getMappedReportDataOfMonth(@Request() req, @Param() param) {
     const { reportId } = param;
 
-    return this.reportService.getCalculatedReportByReportId(reportId);
-  }
-
-  @Put("/:reportId")
-  @UseGuards(JwtAuthGuard)
-  public async saveChangesCalculating(@Body() body, @Param() param) {
-    const { reportId } = param;
-
-    return this.reportService.saveCalculatedChangesByReportId(reportId, body);
+    return this.reportService.getMappedLoadDataByMonthReport(reportId);
   }
 
   @Put("/:reportId/send")
@@ -130,5 +114,31 @@ export class ReportController {
   public async deleteReport(@Param() param) {
     const { id } = param;
     return this.reportService.removeReportById(id);
+  }
+
+  @Post("/total")
+  @Role([UserRole.MANAGER, UserRole.ADMIN])
+  @UseGuards(JwtAuthGuard)
+  @UseGuards(RolesGuard)
+  public async createTotalReport(@Request() req, @Body() body) {
+    const createdBy = req.user.id;
+    return this.reportService.createTotalReport({ createdBy, ...body });
+  }
+
+  @Get("/total/list")
+  @Role([UserRole.MANAGER, UserRole.ADMIN])
+  @UseGuards(JwtAuthGuard)
+  @UseGuards(RolesGuard)
+  public async getTotalReportsList() {
+    return this.reportService.getTotalReports();
+  }
+
+  @Get("/total/:id")
+  @Role([UserRole.MANAGER, UserRole.ADMIN])
+  @UseGuards(JwtAuthGuard)
+  @UseGuards(RolesGuard)
+  public async getTotalReport(@Param() param) {
+    const { id } = param;
+    return this.reportService.getTotalReportById(id);
   }
 }

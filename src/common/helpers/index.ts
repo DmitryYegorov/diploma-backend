@@ -80,3 +80,7 @@ export const getRRuleSetWithExDates = (exDate) => {
   }
   return rruleSet;
 };
+
+export function unique(a: Array<string>) {
+  return a.filter((item, index) => a.indexOf(item) === index);
+}

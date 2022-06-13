@@ -3,6 +3,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CreateReportDto } from "./dto/create-report.dto";
 import { v4 as uuidv4 } from "uuid";
 import {
+  mapLoadToMonthReportTable,
   mapOtherLoadRowToReportData,
   mapReportData,
   mapReportDataToItemList,
@@ -13,6 +14,9 @@ import * as moment from "moment";
 import * as _ from "lodash";
 import { RRuleSet, rrulestr } from "rrule";
 import { ReportState } from "../common/enum";
+import { TotalReportType } from "./type";
+import { CreateTotalReportDto } from "./dto/create-total-report.dto";
+import { EventTypeMap } from "../common/maps";
 
 const { CLASS_DURATION } = process.env;
 
@@ -47,10 +51,12 @@ export class ReportService {
     const report = await this.prismaService.report.create({
       data: {
         name: createReportDto.name,
-        startDate: createReportDto.startDate,
-        endDate: createReportDto.endDate,
+        startDate: moment
+          .utc(createReportDto.startDate)
+          .startOf("day")
+          .toDate(),
+        endDate: moment.utc(createReportDto.endDate).endOf("day").toDate(),
         createdBy: userId,
-        type: createReportDto.type,
       },
     });
 
@@ -59,6 +65,9 @@ export class ReportService {
 
   public async getReportsByUserId(userId: string) {
     const list = await this.prismaService.report.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
       where: { createdBy: userId },
       include: {
         creater: true,
@@ -68,18 +77,14 @@ export class ReportService {
   }
 
   public async getReportById(id: string) {
-    const [report, reportData, calculatedData] = await Promise.all([
-      this.prismaService.report.findFirst({
-        select: this.selectReport,
-        where: { id },
-      }),
-      this.getReportLoadByReportId(id),
-      this.getCalculatedReportByReportId(id),
-    ]);
+    const report = await this.prismaService.report.findFirst({
+      select: this.selectReport,
+      where: { id },
+    });
 
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    return { ...mapReportData({ report, reportData }), calculatedData };
+    return mapReportData({ report });
   }
 
   public async loadOtherLoadToReport(reportId: string) {
@@ -246,13 +251,14 @@ export class ReportService {
     return loadData.map((sl) => mapReportRowToWidthSubjectName(sl));
   }
 
-  public async calculateLoadByReportId(reportId) {
-    const reportLoad = await this.getReportLoadByReportId(reportId);
+  public async getMappedLoadDataByMonthReport(reportId) {
+    const reportLoad = await this.getExistingLoadDataByReport(reportId);
 
     const withSubjects = reportLoad.filter((rl) => rl.subjectName);
     const withOutSubjects = reportLoad.filter((rl) => !rl.subjectName);
 
     const groupedBySubjects = _.groupBy(withSubjects, "subjectName");
+    const groupedByTypes = _.groupBy(withOutSubjects, "type");
 
     const formatted = Object.keys(groupedBySubjects).map((subject) => {
       const entries = groupedBySubjects[subject].map((s) => [
@@ -264,44 +270,44 @@ export class ReportService {
         ...Object.fromEntries(entries),
         subjectName: subject,
         facultyName: groupedBySubjects[subject][0].facultyName,
-        groupsCount: groupedBySubjects[subject][0].groupsCount,
+        subGroupsCount: groupedBySubjects[subject][0].subGroupsCount,
         studentsCount: groupedBySubjects[subject][0].studentsCount,
+        specialityName: groupedBySubjects[subject][0].specialityName,
+        total: groupedBySubjects[subject].reduce(
+          (acc, item) => acc + item.duration,
+          0,
+        ),
       };
     });
 
-    const calculated = [...formatted, ...withOutSubjects];
-    await Promise.all([
-      this.prismaService.calculatedReport.deleteMany({ where: { reportId } }),
-      this.prismaService.calculatedReport.create({
-        data: {
-          reportId: reportId,
-          data: JSON.parse(JSON.stringify(calculated)),
-        },
-      }),
-    ]);
+    const formatterWithOutSubjects = Object.keys(groupedByTypes).map((type) => {
+      const entries = groupedByTypes[type].map((s) => [s.type, s.duration]);
+
+      return {
+        ...Object.fromEntries(entries),
+        subjectName: EventTypeMap[type],
+        facultyName: groupedByTypes[type][0].facultyName,
+        subGroupsCount: groupedByTypes[type][0].subGroupsCount,
+        studentsCount: groupedByTypes[type][0].studentsCount,
+        specialityName: groupedByTypes[type][0].specialityName,
+        total: groupedByTypes[type].reduce(
+          (acc, item) => acc + item.duration,
+          0,
+        ),
+      };
+    });
+
+    const calculated = [...formatted, ...formatterWithOutSubjects];
+    // await Promise.all([
+    //   this.prismaService.calculatedReport.deleteMany({ where: { reportId } }),
+    //   this.prismaService.calculatedReport.create({
+    //     data: {
+    //       reportId: reportId,
+    //       data: JSON.parse(JSON.stringify(calculated)),
+    //     },
+    //   }),
+    // ]);
     return calculated;
-  }
-
-  public async getCalculatedReportByReportId(reportId: string) {
-    const calculated = await this.prismaService.calculatedReport.findFirst({
-      where: { reportId },
-    });
-
-    if (calculated) return calculated.data;
-
-    return [];
-  }
-
-  public async saveCalculatedChangesByReportId(reportId: string, changes) {
-    const calculatedReport =
-      await this.prismaService.calculatedReport.findFirst({
-        where: { reportId },
-      });
-
-    return this.prismaService.calculatedReport.update({
-      where: { id: calculatedReport.id },
-      data: { data: changes },
-    });
   }
 
   public async sendReport(reportId: string) {
@@ -314,9 +320,34 @@ export class ReportService {
     });
   }
 
-  public async getSentReports() {
+  public async getSentReports(options) {
+    let where: any = {
+      state: {
+        not: ReportState.DRAFT,
+      },
+    };
+
+    if (options.type) {
+      where = { ...where, type: options.type };
+    }
+    if (options.startDate) {
+      where = {
+        ...where,
+        startDate: { gte: moment.utc(options.startDate).toDate() },
+      };
+    }
+    if (options.endDate) {
+      where = {
+        ...where,
+        endDate: { lte: moment.utc(options.endDate).toDate() },
+      };
+    }
+    if (options.state) {
+      where = { ...where, state: options.state };
+    }
+
     const res = await this.prismaService.report.findMany({
-      where: { state: ReportState.SENT },
+      where,
       orderBy: {
         sentAt: "desc",
       },
@@ -359,23 +390,112 @@ export class ReportService {
     return this.prismaService.report.delete({ where: { id } });
   }
 
-  private async getReportLoadByReportId(reportId: string) {
-    const [reportLoad, otherLoad] = await Promise.all([
-      this.prismaService.reportLoad.findMany({
-        where: { reportId },
-        include: {
-          subject: true,
-        },
-      }),
-      this.loadOtherLoadToReport(reportId),
-    ]);
+  public async createTotalReport(data: CreateTotalReportDto) {
+    const createdTotalReport = await this.prismaService.totalReport.create({
+      data: {
+        name: data.name,
+        createdBy: data.createdBy,
+        semesterId: data.semesterId,
+        academicYearId: data.academicYearId,
+        type: data.type,
+      },
+    });
 
-    const mappedReportLoad = reportLoad.map((rl) =>
-      mapReportRowToWidthSubjectName(rl),
-    );
+    await this.prismaService.reportTotalReport.createMany({
+      data: data.reportIds.map((reportId) => ({
+        reportId,
+        totalReportId: createdTotalReport.id,
+      })),
+    });
 
-    return [...mappedReportLoad, ...otherLoad].sort((a, b) =>
-      moment(a.date).toDate() > moment(b.date).toDate() ? 1 : -1,
-    );
+    return createdTotalReport;
   }
+
+  public async getTotalReports() {
+    const totalReports = await this.prismaService.totalReport.findMany({
+      include: {
+        creater: true,
+      },
+    });
+
+    return totalReports.map((item) => ({
+      ...item,
+      createdName: `${item.creater.firstName} ${item.creater.middleName} ${item.creater.lastName}`,
+    }));
+  }
+
+  public async getTotalReportById(id: string) {
+    const totalReport = await this.prismaService.totalReport.findFirst({
+      where: { id },
+      include: {
+        creater: true,
+        ReportTotalReport: {
+          include: {
+            report: {
+              include: {
+                creater: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const reports = totalReport.ReportTotalReport.map((item) => ({
+      id: item.reportId,
+      teacher: `${item.report.creater.firstName} ${item.report.creater.middleName[0]}. ${item.report.creater.lastName[0]}.`,
+      startDate: item.report.startDate,
+      endDate: item.report.endDate,
+    }));
+
+    const dates = [
+      ...reports.map((r) => r.endDate),
+      ...reports.map((r) => r.startDate),
+    ];
+
+    let startDate = dates[0];
+    let endDate = dates[0];
+
+    dates.forEach((date: Date) => {
+      if (date <= startDate) startDate = date;
+      if (date >= endDate) endDate = date;
+    });
+
+    const mappedReports = [];
+
+    for await (const report of reports) {
+      const mapped = await this.getMappedLoadDataByMonthReport(report.id);
+      const load = mapped;
+      mappedReports.push({ teacherName: report.teacher, load: mapped });
+    }
+
+    return {
+      data: mappedReports,
+      reportName: totalReport.name,
+      createdAt: totalReport.createdAt,
+      creater: `${totalReport.creater.firstName} ${totalReport.creater.middleName} ${totalReport.creater.lastName}`,
+      startDate: moment.utc(startDate).startOf("day").toDate(),
+      endDate: moment.utc(endDate).endOf("day").toDate(),
+    };
+  }
+
+  // private async getReportLoadByReportId(reportId: string) {
+  //   const [reportLoad, otherLoad] = await Promise.all([
+  //     this.prismaService.reportLoad.findMany({
+  //       where: { reportId },
+  //       include: {
+  //         subject: true,
+  //       },
+  //     }),
+  //     this.loadOtherLoadToReport(reportId),
+  //   ]);
+  //
+  //   const mappedReportLoad = reportLoad.map((rl) =>
+  //     mapReportRowToWidthSubjectName(rl),
+  //   );
+  //
+  //   return [...mappedReportLoad, ...otherLoad].sort((a, b) =>
+  //     moment(a.date).toDate() > moment(b.date).toDate() ? 1 : -1,
+  //   );
+  // }
 }

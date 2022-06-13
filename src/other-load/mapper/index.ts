@@ -38,5 +38,7 @@ export function mapDbDataToLoadItem(loadPlan) {
     specialityName: specialityLabels,
     facultyName: facultyLabels,
     studentsCount: loadPlan.studentsCount,
+    createdAt: loadPlan.createdAt,
+    date: loadPlan.date,
   };
 }

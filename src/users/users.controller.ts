@@ -15,6 +15,7 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { Role } from "../auth/guards/roles.decorator";
 import { UserRole } from "../common/enum";
 import { ActivateUserDto } from "./dto/activate-user.dto";
+import { JwtAuthGuard } from "../auth/guards/auth.guard";
 
 @Controller("user")
 export class UsersController {
@@ -38,5 +39,23 @@ export class UsersController {
     const { userId } = param;
 
     return this.usersService.activateUser(userId, isActive);
+  }
+
+  @Put("/activate/email/:activationCode")
+  public async activateEmail(@Param() param) {
+    const { activationCode } = param;
+
+    return this.usersService.activateUserEmail(activationCode);
+  }
+
+  @Put("/:userId/role")
+  @UseGuards(JwtAuthGuard)
+  @Role([UserRole.ADMIN])
+  @UseGuards(RolesGuard)
+  public async changeUserRole(@Body() body, @Param() param) {
+    const { role } = body;
+    const { userId } = param;
+
+    return this.usersService.changeUserRole(userId, role);
   }
 }

@@ -1,13 +1,17 @@
 import { Module } from "@nestjs/common";
 import { DocumentsService } from "./documents.service";
 import { DocumentsController } from "./documents.controller";
-import { ScheduleService } from "../schedule/schedule.service";
-import { ScheduleModule } from "../schedule/schedule.module";
 import { PrismaService } from "../prisma/prisma.service";
+import { MulterModule } from "@nestjs/platform-express";
+import { JwtModule } from "@nestjs/jwt";
 
 @Module({
-  providers: [PrismaService, DocumentsService, ScheduleService],
+  providers: [PrismaService, DocumentsService],
   controllers: [DocumentsController],
-  imports: [ScheduleModule],
+  imports: [
+    JwtModule.register({
+      secret: process.env.SECRET,
+    }),
+  ],
 })
 export class DocumentsModule {}

@@ -10,6 +10,7 @@ import {
   Faculty,
 } from "@prisma/client";
 import { EventTypeMap } from "../../common/maps";
+import { unique } from "../../common/helpers";
 
 const { CLASS_DURATION } = process.env;
 
@@ -22,11 +23,8 @@ type ReportLoadWithSubject = {
   duration: number;
 };
 
-export const mapReportData = (data: {
-  report: Report & { creater: User };
-  reportData?: ReportLoadWithSubject;
-}) => {
-  const { report, reportData } = data;
+export const mapReportData = (data: any) => {
+  const { report } = data;
 
   return {
     id: report.id,
@@ -36,7 +34,7 @@ export const mapReportData = (data: {
     createdAt: moment(new Date(report.createdAt)).format("DD-MM-yyyy"),
     createdBy: `${report.creater.firstName} ${report.creater.middleName[0]}. ${report.creater.lastName[0]}.`,
     state: report.state,
-    reportData,
+    type: report.type,
   };
 };
 
@@ -61,7 +59,9 @@ export function mapReportRowToWidthSubjectName(data: any) {
     scheduleClass.GroupScheduleClass.forEach((item) =>
       groups.push({
         label: `${item.group.course}к. ${item.group.speciality.faculty.shortName} ${item.group.group}-${item.group.subGroup}`,
-        speciality: item.group.speciality.shortName,
+        specialityName: item.group.speciality.shortName,
+        facultyName: item.group.speciality.faculty.shortName,
+        course: item.group.course,
       }),
     );
   }
@@ -69,10 +69,17 @@ export function mapReportRowToWidthSubjectName(data: any) {
     otherLoad.OtherLoadGroup.forEach((item) =>
       groups.push({
         label: `${item.group.course}к. ${item.group.speciality.faculty.shortName} ${item.group.group}-${item.group.subGroup}`,
-        speciality: item.group.speciality.shortName,
+        specialityName: item.group.speciality.shortName,
+        facultyName: item.group.speciality.faculty.shortName,
+        course: item.group.course,
       }),
     );
   }
+
+  const facultyLabels = unique(groups.map((g) => g.facultyName));
+  const specialityLabels = unique(
+    groups.map((g) => `${g.course} ${g.specialityName}`),
+  );
 
   return {
     id: data.id,
@@ -81,7 +88,10 @@ export function mapReportRowToWidthSubjectName(data: any) {
     date: data.date,
     type: data.type,
     duration: data.duration,
+    subGroupsCount: groups.length,
     groups,
+    facultyName: facultyLabels.join(", "),
+    specialityName: specialityLabels.join(", "),
   };
 }
 
@@ -99,4 +109,28 @@ export function mapOtherLoadRowToReportData(row: any) {
     duration: row.duration,
     date: row.date,
   };
+}
+
+export function mapLoadToMonthReportTable(reportLoad) {
+  const withSubjects = reportLoad.filter((rl) => rl.subjectName);
+  const withOutSubjects = reportLoad.filter((rl) => !rl.subjectName);
+
+  const groupedBySubjects = _.groupBy(withSubjects, "subjectName");
+
+  const formatted = Object.keys(groupedBySubjects).map((subject) => {
+    const entries = groupedBySubjects[subject].map((s) => [s.type, s.duration]);
+
+    return {
+      ...Object.fromEntries(entries),
+      subjectName: subject,
+      facultyName: groupedBySubjects[subject][0].facultyName,
+      subGroupsCount: groupedBySubjects[subject][0].subGroupsCount,
+      studentsCount: groupedBySubjects[subject][0].studentsCount,
+      specialityName: groupedBySubjects[subject][0].specialityName,
+    };
+  });
+
+  const calculated = [...formatted, ...withOutSubjects];
+
+  return calculated;
 }

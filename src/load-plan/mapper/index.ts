@@ -1,6 +1,4 @@
-export function unique(a: Array<string>) {
-  return a.filter((item, index) => a.indexOf(item) === index);
-}
+import { unique } from "../../common/helpers";
 
 export function mapDbDataToLoadPlanTable(loadPlan) {
   const groups = loadPlan.LoadPlanSubGroups.map((item) => ({

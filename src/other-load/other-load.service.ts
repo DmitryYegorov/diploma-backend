@@ -69,6 +69,9 @@ export class OtherLoadService {
 
     const load = await this.prismaService.otherLoad.findMany({
       where: { ...where },
+      orderBy: {
+        createdAt: "desc",
+      },
       include: {
         subject: true,
         OtherLoadGroup: {
