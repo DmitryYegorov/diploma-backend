@@ -14,6 +14,7 @@ import {
 } from "./formatters";
 import { UpdateScheduleClassDto } from "./dto/update-schedule-class.dto";
 import { GetScheduleClassesOptionsDto } from "./dto/get-schedule-classes-options.dto";
+import { NotificationService } from "../notification/notification.service";
 
 const updatedSelect = {
   scheduleClass: {
@@ -48,7 +49,10 @@ const updatedSelect = {
 
 @Injectable()
 export class ScheduleService {
-  constructor(private prismaService: PrismaService) {}
+  constructor(
+    private prismaService: PrismaService,
+    private notificationService: NotificationService,
+  ) {}
 
   public async createScheduleClasses(scheduleClass) {
     const oldClassData = await this.prismaService.scheduleClasses.findMany({
@@ -375,6 +379,24 @@ export class ScheduleService {
         createdBy: initiator,
       },
     });
+
+    const { firstName, middleName, lastName } =
+      await this.prismaService.user.findFirst({
+        where: { id: initiator },
+        select: { firstName: true, middleName: true, lastName: true },
+      });
+
+    if (update.id) {
+      await this.notificationService.createNotification({
+        userId: teacherId,
+        subject: "Замена",
+        notification: `${firstName} ${middleName} ${lastName} запросил у Вас замену на ${moment(
+          classDate,
+        ).format(
+          "DD-MM-yyyy",
+        )} по причине: "${reason}". Данные отображены в календаре.`,
+      });
+    }
 
     return update;
   }

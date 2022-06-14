@@ -29,9 +29,9 @@ export const mapReportData = (data: any) => {
   return {
     id: report.id,
     name: report.name,
-    startDate: moment(new Date(report.startDate)).format("DD-MM-yyyy"),
-    endDate: moment(new Date(report.endDate)).format("DD-MM-yyyy"),
-    createdAt: moment(new Date(report.createdAt)).format("DD-MM-yyyy"),
+    startDate: moment.utc(report.startDate).format("DD-MM-yyyy"),
+    endDate: moment.utc(report.endDate).format("DD-MM-yyyy"),
+    createdAt: moment.utc(report.createdAt).format("DD-MM-yyyy HH:mm"),
     createdBy: `${report.creater.firstName} ${report.creater.middleName[0]}. ${report.creater.lastName[0]}.`,
     state: report.state,
     type: report.type,
@@ -42,9 +42,9 @@ export function mapReportDataToItemList(report: Report & { creater: User }) {
   return {
     id: report.id,
     name: report.name,
-    startDate: moment(new Date(report.startDate)).format("DD-MM-yyyy"),
-    endDate: moment(new Date(report.endDate)).format("DD-MM-yyyy"),
-    createdAt: moment(new Date(report.createdAt)).format("DD-MM-yyyy"),
+    startDate: moment.utc(report.startDate).format("DD-MM-yyyy"),
+    endDate: moment.utc(report.endDate).format("DD-MM-yyyy"),
+    createdAt: moment(report.createdAt).format("DD-MM-yyyy HH:mm"),
     createdBy: `${report.creater.firstName} ${report.creater.middleName[0]}. ${report.creater.lastName[0]}.`,
     state: report.state,
   };

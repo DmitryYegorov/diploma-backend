@@ -6,11 +6,19 @@ import { PrismaModule } from "../prisma/prisma.module";
 import { PrismaService } from "../prisma/prisma.service";
 import { ScheduleService } from "../schedule/schedule.service";
 import { ScheduleModule } from "../schedule/schedule.module";
+import { NotificationModule } from "../notification/notification.module";
+import { NotificationService } from "../notification/notification.service";
 
 @Module({
-  providers: [PrismaService, ReportService, ScheduleService],
+  providers: [
+    NotificationService,
+    PrismaService,
+    ReportService,
+    ScheduleService,
+  ],
   controllers: [ReportController],
   imports: [
+    NotificationModule,
     JwtModule.register({
       secret: process.env.SECRET,
     }),

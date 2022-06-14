@@ -49,6 +49,7 @@ enum ReportState {
   DRAFT
   SENT
   APPROVED
+  REQUEST_CHANGES
 }
 
 enum ReportType {
@@ -99,6 +100,8 @@ model User {
   LoadPlan            LoadPlan[]
   TotalReport         TotalReport[]
   Document            Document[]
+  ReportNote          ReportNote[]
+  Notification        Notification[]
   @@map("user")
 }
 
@@ -305,11 +308,24 @@ model Report {
   createdBy  String       @db.Uuid
   sentAt     DateTime?
   approvedAt DateTime?
-  adminNote  String?
 
   ReportLoad        ReportLoad[]
   ReportTotalReport ReportTotalReport[]
+  ReportNote        ReportNote[]
   @@map("report")
+}
+
+model ReportNote {
+  id        String    @id @default(value: uuid()) @db.Uuid
+  report    Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportId  String    @db.Uuid
+  note      String
+  author    User      @relation(fields: [createdBy], references: [id])
+  createdBy String    @db.Uuid
+  createdAt DateTime? @default(value: now())
+  updatedAt DateTime?
+
+  @@map("report-note")
 }
 
 model Speciality {
@@ -377,4 +393,16 @@ model Document {
   loadedBy       String        @db.Uuid
 
   @@map("document")
+}
+
+model Notification {
+  id           String    @id @default(value: uuid()) @db.Uuid
+  user         User      @relation(fields: [userId], references: [id])
+  userId       String    @db.Uuid
+  subject      String
+  notification String
+  readed       Boolean?  @default(value: false)
+  createdAt    DateTime? @default(value: now())
+
+  @@map("notification")
 }

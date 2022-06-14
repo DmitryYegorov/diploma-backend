@@ -96,10 +96,11 @@ export class ReportController {
   @UseGuards(JwtAuthGuard)
   @Role([UserRole.ADMIN, UserRole.MANAGER])
   @UseGuards(RolesGuard)
-  public async cancelReport(@Body() body, @Param() param) {
+  public async cancelReport(@Body() body, @Param() param, @Request() req) {
     const { adminNote } = body;
     const { reportId } = param;
-    return this.reportService.cancelReport(reportId, adminNote);
+    const userId = req.user.id;
+    return this.reportService.cancelReport(reportId, adminNote, userId);
   }
 
   @Delete("/load/:id")
@@ -140,5 +141,28 @@ export class ReportController {
   public async getTotalReport(@Param() param) {
     const { id } = param;
     return this.reportService.getTotalReportById(id);
+  }
+
+  @Get("/:reportId/note")
+  @UseGuards(JwtAuthGuard)
+  public async getReportNotes(@Param() param) {
+    const { reportId } = param;
+    return this.reportService.getReportNotes(reportId);
+  }
+
+  @Put("/note/:noteId")
+  @UseGuards(JwtAuthGuard)
+  public async updateReportNote(@Body() body, @Param() param) {
+    const { note } = body;
+    const { noteId } = param;
+
+    return this.reportService.updateReportNote(noteId, note);
+  }
+
+  @Delete("/note/:noteId")
+  @UseGuards(JwtAuthGuard)
+  public async removeReportNote(@Param() param) {
+    const { noteId } = param;
+    return this.reportService.removeReportNote(noteId);
   }
 }

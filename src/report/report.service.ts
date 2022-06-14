@@ -61,6 +61,8 @@ export class ReportService {
     });
 
     await this.loadDataToReport(report.id);
+
+    return report;
   }
 
   public async getReportsByUserId(userId: string) {
@@ -94,10 +96,13 @@ export class ReportService {
     const { createdBy, startDate, endDate } = report;
 
     const otherLoad = await this.prismaService.otherLoad.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
       where: {
         date: {
-          gte: moment(startDate).startOf("month").toDate(),
-          lte: moment(endDate).endOf("month").toDate(),
+          gte: moment.utc(startDate).startOf("month").toDate(),
+          lte: moment.utc(endDate).endOf("month").toDate(),
         },
         createdBy,
       },
@@ -248,7 +253,9 @@ export class ReportService {
       where: { reportId },
     });
 
-    return loadData.map((sl) => mapReportRowToWidthSubjectName(sl));
+    return loadData
+      .map((sl) => mapReportRowToWidthSubjectName(sl))
+      .sort((a, b) => a.date - b.date);
   }
 
   public async getMappedLoadDataByMonthReport(reportId) {
@@ -261,18 +268,24 @@ export class ReportService {
     const groupedByTypes = _.groupBy(withOutSubjects, "type");
 
     const formatted = Object.keys(groupedBySubjects).map((subject) => {
-      const entries = groupedBySubjects[subject].map((s) => [
-        s.type,
-        s.duration,
-      ]);
+      const entries = groupedBySubjects[subject].map((s) => {
+        const entry = [s.type];
+
+        const duration = groupedBySubjects[subject]
+          .filter((item) => item.type === s.type)
+          .reduce((acc, itemDuration) => acc + itemDuration.duration, 0);
+        entry.push(duration);
+
+        return entry;
+      });
 
       return {
         ...Object.fromEntries(entries),
         subjectName: subject,
         facultyName: groupedBySubjects[subject][0].facultyName,
-        subGroupsCount: groupedBySubjects[subject][0].subGroupsCount,
+        subgroupsCount: groupedBySubjects[subject][0].subGroupsCount,
         studentsCount: groupedBySubjects[subject][0].studentsCount,
-        specialityName: groupedBySubjects[subject][0].specialityName,
+        courseAndSpecialityLabel: groupedBySubjects[subject][0].specialityName,
         total: groupedBySubjects[subject].reduce(
           (acc, item) => acc + item.duration,
           0,
@@ -287,7 +300,7 @@ export class ReportService {
         ...Object.fromEntries(entries),
         subjectName: EventTypeMap[type],
         facultyName: groupedByTypes[type][0].facultyName,
-        subGroupsCount: groupedByTypes[type][0].subGroupsCount,
+        subgroupsCount: groupedByTypes[type][0].subGroupsCount,
         studentsCount: groupedByTypes[type][0].studentsCount,
         specialityName: groupedByTypes[type][0].specialityName,
         total: groupedByTypes[type].reduce(
@@ -298,15 +311,7 @@ export class ReportService {
     });
 
     const calculated = [...formatted, ...formatterWithOutSubjects];
-    // await Promise.all([
-    //   this.prismaService.calculatedReport.deleteMany({ where: { reportId } }),
-    //   this.prismaService.calculatedReport.create({
-    //     data: {
-    //       reportId: reportId,
-    //       data: JSON.parse(JSON.stringify(calculated)),
-    //     },
-    //   }),
-    // ]);
+
     return calculated;
   }
 
@@ -371,15 +376,18 @@ export class ReportService {
     return report;
   }
 
-  public async cancelReport(reportId: string, adminNote: string) {
+  public async cancelReport(reportId: string, adminNote: string, userId) {
     const update = await this.prismaService.report.update({
       where: { id: reportId },
       data: {
-        adminNote,
+        state: ReportState.REQUEST_CHANGES,
       },
     });
+    const note = await this.prismaService.reportNote.create({
+      data: { reportId, note: adminNote, createdBy: userId },
+    });
 
-    return update;
+    return note;
   }
 
   public async removeLoadItemFromReport(id: string) {
@@ -479,23 +487,36 @@ export class ReportService {
     };
   }
 
-  // private async getReportLoadByReportId(reportId: string) {
-  //   const [reportLoad, otherLoad] = await Promise.all([
-  //     this.prismaService.reportLoad.findMany({
-  //       where: { reportId },
-  //       include: {
-  //         subject: true,
-  //       },
-  //     }),
-  //     this.loadOtherLoadToReport(reportId),
-  //   ]);
-  //
-  //   const mappedReportLoad = reportLoad.map((rl) =>
-  //     mapReportRowToWidthSubjectName(rl),
-  //   );
-  //
-  //   return [...mappedReportLoad, ...otherLoad].sort((a, b) =>
-  //     moment(a.date).toDate() > moment(b.date).toDate() ? 1 : -1,
-  //   );
-  // }
+  public async getReportNotes(reportId: string) {
+    const notes = await this.prismaService.reportNote.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+      where: { reportId },
+      include: { author: true },
+    });
+
+    return notes.map((note) => ({
+      ...note,
+      authorName: `${note.author.firstName} ${note.author.middleName} ${note.author.lastName}`,
+      updated: !!note.updatedAt,
+    }));
+  }
+
+  public async updateReportNote(noteId: string, newNote: string) {
+    const updatedNote = await this.prismaService.reportNote.update({
+      data: { note: newNote, updatedAt: moment().toDate() },
+      where: { id: noteId },
+    });
+
+    return updatedNote;
+  }
+
+  public async removeReportNote(noteId: string) {
+    const removed = await this.prismaService.reportNote.delete({
+      where: { id: noteId },
+    });
+
+    return removed;
+  }
 }

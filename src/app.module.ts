@@ -14,6 +14,7 @@ import { FacultyModule } from "./faculty/faculty.module";
 import { OtherLoadModule } from './other-load/other-load.module';
 import { SpecialityModule } from './speciality/speciality.module';
 import { LoadPlanModule } from './load-plan/load-plan.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { LoadPlanModule } from './load-plan/load-plan.module';
     OtherLoadModule,
     SpecialityModule,
     LoadPlanModule,
+    NotificationModule,
   ],
   controllers: [],
   providers: [],

@@ -66,6 +66,18 @@ export class OtherLoadService {
     if (options.type) {
       where = { ...where, type: options.type };
     }
+    if (options.endDate && options.startDate) {
+      where = {
+        ...where,
+        date: {
+          lte: moment(options.endDate).toDate(),
+          gte: moment(options.startDate).toDate(),
+        },
+      };
+    }
+    if (options.subjectId) {
+      where = { ...where, subjectId: options.subjectId };
+    }
 
     const load = await this.prismaService.otherLoad.findMany({
       where: { ...where },
