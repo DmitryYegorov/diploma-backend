@@ -27,6 +27,18 @@ export class SubjectService {
   public async getAllSubjects() {
     const list = await this.prismaService.subject.findMany({
       where: { deletedAt: null },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            middleName: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
     return {

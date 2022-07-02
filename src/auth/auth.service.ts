@@ -43,12 +43,12 @@ export class AuthService {
       const refresh = this.jwtService.sign(
         { id: user.id, email, password },
         {
-          expiresIn: "3000s",
+          expiresIn: "24h",
         },
       );
       const access = this.jwtService.sign(
-        { id: user.id, email, password },
-        { expiresIn: "60s" },
+        { id: user.id, email, password, role: user.role },
+        { expiresIn: "1d" },
       );
 
       return { user, refresh, access };
@@ -99,6 +99,36 @@ export class AuthService {
       console.log(e);
       throw e;
     }
+  }
+
+  public async activateAccount(id: string, code: string) {
+    try {
+      const user = await this.prismaService.user.findUnique({ where: { id } });
+      let updated = {};
+
+      if (code === user.activationCode) {
+        await this.jwtService.verify(code);
+        updated = await this.prismaService.user.update({
+          where: { id },
+          data: { activationCode: null, activatedAt: new Date() },
+        });
+      }
+
+      return !!updated;
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  public refreshToken(refresh: string) {
+    const { id, email, password } = this.jwtService.verify(refresh);
+
+    const access = this.jwtService.sign(
+      { id, email, password },
+      { expiresIn: "900s" },
+    );
+
+    return access;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function

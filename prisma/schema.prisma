@@ -12,6 +12,7 @@ datasource db {
 
 enum Role {
   ADMIN
+  MANAGER
   USER
 }
 
@@ -21,10 +22,12 @@ enum ClassType {
   PRACTICE_CLASS
 }
 
+enum RoomType {
+  COMPUTER
+  LECTURE
+}
+
 enum EventType {
-  LECTION
-  PRACTICE_CLASS
-  LAB
   CONSULTATION
   COURSE_WORK
   EXAM
@@ -36,10 +39,37 @@ enum EventType {
   STATE_EXAMINATION_BOARD
 }
 
+enum LoadType {
+  CONSULTATION
+  COURSE_WORK
+  EXAM
+  CREDIT
+  POSTGRADUATE
+  TESTING
+  PRACTICE
+  DIPLOMA_DESIGN
+  STATE_EXAMINATION_BOARD
+  LAB
+  LECTION
+  PRACTICE_CLASS
+}
+
 enum Week {
   FIRST
   SECOND
   WEEKLY
+}
+
+enum ScheduleClassUpdateType {
+  SWAP
+  CANCEL
+  RESCHEDULED
+}
+
+enum ReportState {
+  DRAFT
+  SENT
+  APPROVED
 }
 
 model User {
@@ -57,8 +87,12 @@ model User {
   invitedBy      String?   @db.Uuid
   isActive       Boolean   @default(false)
 
-  ScheduleClasses ScheduleClasses[] @relation("teaching")
-  Event           Event[]           @relation("UserOnEvent")
+  ScheduleClasses     ScheduleClasses[]     @relation("teaching")
+  Subject             Subject[]
+  ScheduleClassUpdate ScheduleClassUpdate[]
+  Report              Report[]
+  OtherLoad           OtherLoad[]
+  LoadPlan            LoadPlan[]
   @@map("user")
 }
 
@@ -68,45 +102,237 @@ model Subject {
   shortName String    @db.VarChar()
   createdAt DateTime  @default(value: now())
   deletedAt DateTime?
+  user      User      @relation(fields: [createdBy], references: [id])
   createdBy String    @db.Uuid
   deletedBy String?   @db.Uuid
 
   ScheduleClasses ScheduleClasses[] @relation("SubjectOnScheduleClasses")
+  OtherLoad       OtherLoad[]
+  ReportLoad      ReportLoad[]
+  LoadPlan        LoadPlan[]
   @@map("subject")
 }
 
 model ScheduleClasses {
-  id              String    @id @default(value: uuid()) @db.Uuid
-  teacher         User      @relation(name: "teaching", fields: [teacherId], references: [id])
-  teacherId       String    @db.Uuid
-  subject         Subject   @relation(name: "SubjectOnScheduleClasses", fields: [subjectId], references: [id])
-  subjectId       String    @db.Uuid
-  type            ClassType
-  week            Week      @default(WEEKLY)
-  recurrenceStart DateTime
-  recurrenceEnd   DateTime
-  duration        Int
-  createdAt       DateTime  @default(value: now())
-  updatedAt       DateTime?
-  createdBy       String    @db.Uuid
-  updatedBy       String    @db.Uuid
+  id             String       @id @default(value: uuid()) @db.Uuid
+  teacher        User         @relation(name: "teaching", fields: [teacherId], references: [id])
+  teacherId      String       @db.Uuid
+  subject        Subject      @relation(name: "SubjectOnScheduleClasses", fields: [subjectId], references: [id])
+  subjectId      String       @db.Uuid
+  type           ClassType
+  week           Week         @default(WEEKLY)
+  semester       Semester     @relation(name: "SemesterOnScheduleClasees", fields: [semesterId], references: [id])
+  semesterId     String       @db.Uuid
+  room           Room         @relation(name: "RoomOnScheduleClasses", fields: [roomId], references: [id])
+  roomId         String       @db.Uuid
+  weekDay        Int
+  scheduleTime   ScheduleTime @relation(name: "ScheduleTimeOnScheduleClasses", fields: [scheduleTimeId], references: [id])
+  scheduleTimeId String       @db.Uuid
+  startDate      DateTime?
+  endDate        DateTime?
+  createdAt      DateTime     @default(value: now())
+  updatedAt      DateTime?
+  createdBy      String       @db.Uuid
+  updatedBy      String?      @db.Uuid
 
+  GroupScheduleClass  GroupScheduleClass[]
+  ScheduleClassUpdate ScheduleClassUpdate[]
   @@map("schedule-classes")
 }
 
-model Event {
-  id               String    @id @default(value: uuid()) @db.Uuid
-  user             User      @relation(name: "UserOnEvent", fields: [userId], references: [id])
-  userId           String    @db.Uuid
-  type             EventType
-  startTime        DateTime
-  endTime          DateTime
-  isRecurring      Boolean
-  isAllDay         Boolean
-  recurrencePattern String?
-  recurrenceUntil    DateTime?
-  createdAt        DateTime  @default(value: now())
-  createdBy        String    @db.Uuid
+model GroupScheduleClass {
+  id              String          @id @default(value: uuid()) @db.Uuid
+  scheduleClass   ScheduleClasses @relation(fields: [scheduleClassId], references: [id], onDelete: Cascade)
+  group           Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  scheduleClassId String          @db.Uuid
+  groupId         String          @db.Uuid
 
-  @@map("event")
+
+  @@map("group_schedule-classes")
+}
+
+model Faculty {
+  id        String @id @default(value: uuid()) @db.Uuid
+  name      String @db.VarChar()
+  shortName String @db.VarChar()
+
+  OtherLoad  OtherLoad[]
+  Speciality Speciality[] @relation("FacultyOnGroup")
+  @@map("faculty")
+}
+
+model Group {
+  id           String     @id @default(value: uuid()) @db.Uuid
+  group        Int
+  subGroup     Int
+  course       Int
+  semester     Semester   @relation(fields: [semesterId], references: [id])
+  semesterId   String     @db.Uuid
+  speciality   Speciality @relation(fields: [specialityId], references: [id])
+  specialityId String     @db.Uuid
+
+  GroupScheduleClass GroupScheduleClass[]
+  LoadPlanSubGroups  LoadPlanSubGroups[]
+  @@map("group")
+}
+
+model Room {
+  id     String   @id @default(value: uuid()) @db.Uuid
+  campus String   @db.VarChar(5)
+  room   String   @db.VarChar(5)
+  type   RoomType
+
+  ScheduleClasses ScheduleClasses[] @relation("RoomOnScheduleClasses")
+  @@map("room")
+}
+
+model ScheduleTime {
+  id          String @id @default(value: uuid()) @db.Uuid
+  order       Int
+  startHours  Int
+  startMinute Int
+  endHours    Int
+  endMinute   Int
+
+  ScheduleClasses ScheduleClasses[] @relation("ScheduleTimeOnScheduleClasses")
+  @@map("schedule-time")
+}
+
+model Semester {
+  id             String       @id @default(value: uuid()) @db.Uuid
+  name           String       @db.VarChar()
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  academicYearId String       @db.Uuid
+  startDate      DateTime
+  endDate        DateTime
+  isArchived     Boolean?     @default(value: false)
+
+  ScheduleClasses ScheduleClasses[] @relation("SemesterOnScheduleClasees")
+  Group           Group[]
+  LoadPlan        LoadPlan[]
+  @@map("semester")
+}
+
+model AcademicYear {
+  id         String   @id @default(value: uuid()) @db.Uuid
+  startDate  DateTime
+  endDate    DateTime
+  isArchived Boolean? @default(value: false)
+
+  Semester Semester[]
+  @@map("academic-year")
+}
+
+model ReportLoad {
+  id        String    @id @default(value: uuid()) @db.Uuid
+  type      LoadType?
+  subject   Subject?  @relation(fields: [subjectId], references: [id])
+  subjectId String?   @db.Uuid
+  report    Report    @relation(fields: [reportId], references: [id])
+  reportId  String    @db.Uuid
+  duration  Float
+  date      DateTime
+  createdAt DateTime? @default(value: now())
+
+  @@map("report-load")
+}
+
+model OtherLoad {
+  id            String    @id @default(value: uuid()) @db.Uuid
+  type          EventType
+  groupsCount   Int?
+  studentsCount Int?
+  faculty       Faculty   @relation(fields: [facultyId], references: [id])
+  facultyId     String    @db.Uuid
+  subject       Subject?  @relation(fields: [subjectId], references: [id])
+  subjectId     String?   @db.Uuid
+  duration      Float
+  date          DateTime
+  createdAt     DateTime? @default(value: now())
+  created       User      @relation(fields: [createdBy], references: [id])
+  createdBy     String    @db.Uuid
+
+  @@map("other-load")
+}
+
+model ScheduleClassUpdate {
+  id              String                  @id @default(value: uuid()) @db.Uuid
+  scheduleClass   ScheduleClasses         @relation(fields: [scheduleClassId], references: [id], onDelete: Cascade)
+  scheduleClassId String                  @db.Uuid
+  type            ScheduleClassUpdateType
+  teacher         User?                   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId       String?                 @db.Uuid
+  classDate       DateTime
+  rescheduleDate  DateTime?
+  createdAt       DateTime?               @default(value: now())
+  reason          String
+  createdBy       String                  @db.Uuid
+
+  @@map("schedule-class-update")
+}
+
+model Report {
+  id         String       @id @default(value: uuid()) @db.Uuid
+  name       String       @db.VarChar()
+  state      ReportState? @default(DRAFT)
+  startDate  DateTime
+  endDate    DateTime
+  createdAt  DateTime?    @default(value: now())
+  creater    User         @relation(fields: [createdBy], references: [id])
+  createdBy  String       @db.Uuid
+  sentAt     DateTime?
+  approvedAt DateTime?
+  adminNote  String?
+
+  ReportLoad       ReportLoad[]
+  CalculatedReport CalculatedReport[]
+  @@map("report")
+}
+
+model CalculatedReport {
+  id        String    @id @default(value: uuid()) @db.Uuid
+  report    Report    @relation(fields: [reportId], references: [id])
+  reportId  String    @db.Uuid
+  data      Json
+  createdAt DateTime? @default(value: now())
+  updatedAt DateTime?
+
+  @@map("calculated-report")
+}
+
+model Speciality {
+  id        String  @id @default(value: uuid()) @db.Uuid
+  faculty   Faculty @relation(name: "FacultyOnGroup", fields: [facultyId], references: [id])
+  facultyId String  @db.Uuid
+  name      String  @db.VarChar()
+  shortName String  @db.VarChar()
+
+  Group Group[]
+  @@map("specialty")
+}
+
+model LoadPlan {
+  id         String    @id @default(value: uuid()) @db.Uuid
+  type       LoadType
+  subject    Subject?  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectId  String?   @db.Uuid
+  duration   Float
+  semester   Semester  @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  semesterId String    @db.Uuid
+  teacher    User      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId  String    @db.Uuid
+  createdAt  DateTime? @default(value: now())
+
+  LoadPlanSubGroups LoadPlanSubGroups[]
+  @@map("load-plan")
+}
+
+model LoadPlanSubGroups {
+  id         String   @id @default(value: uuid()) @db.Uuid
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId    String   @db.Uuid
+  loadPlan   LoadPlan @relation(fields: [loadPlanId], references: [id], onDelete: Cascade)
+  loadPlanId String   @db.Uuid
+
+  @@map("load-plan_group")
 }
